@@ -155,7 +155,7 @@ services:
       DATACAT_LISTEN_ADDR: "0.0.0.0:8000"
       DATACAT_QUERY_SERVICE_URL: "http://datacat-query:8001"
       DATACAT_INSIGHTS_SERVICE_URL: "http://datacat-insights:9091"
-      DATACAT_ADMIN_URL: "http://datacat-admin:9092"
+      DATACAT_ADMIN_URL: "http://datacat-admin:9093"
     depends_on:
       - datacat-query
     profiles: ["full"]
@@ -203,10 +203,9 @@ services:
       dockerfile: deploy/Dockerfile.admin
     image: datacat-admin:dev
     ports:
-      # Host port 19092 avoids conflict with the redpanda OUTSIDE listener on 9092
-      - "19092:9092"
+      - "9093:9093"
     environment:
-      DATACAT_LISTEN_ADDR: "0.0.0.0:9092"
+      DATACAT_LISTEN_ADDR: "0.0.0.0:9093"
       DATACAT_LICENSE_SECRET: "change_me_in_production"
     profiles: ["full"]
     restart: unless-stopped

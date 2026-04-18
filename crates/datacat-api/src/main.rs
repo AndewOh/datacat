@@ -5,7 +5,7 @@
 //!
 //! 환경변수:
 //!   DATACAT_AUTH_ENABLED   — "true" 이면 X-API-Key 인증 활성화 (기본: false)
-//!   DATACAT_ADMIN_URL      — datacat-admin URL (기본: http://localhost:9092)
+//!   DATACAT_ADMIN_URL      — datacat-admin URL (기본: http://localhost:9093)
 
 mod auth;
 mod routes;
@@ -29,7 +29,7 @@ pub struct ApiConfig {
     #[serde(default = "default_insights_service_url")]
     pub insights_service_url: String,
 
-    /// datacat-admin 서비스 URL (기본: http://localhost:9092)
+    /// datacat-admin 서비스 URL (기본: http://localhost:9093)
     #[serde(default = "default_admin_service_url")]
     pub admin_service_url: String,
 }
@@ -37,7 +37,7 @@ pub struct ApiConfig {
 fn default_listen_addr() -> String { "0.0.0.0:8000".to_string() }
 fn default_query_service_url() -> String { "http://localhost:8080".to_string() }
 fn default_insights_service_url() -> String { "http://localhost:9091".to_string() }
-fn default_admin_service_url() -> String { "http://localhost:9092".to_string() }
+fn default_admin_service_url() -> String { "http://localhost:9093".to_string() }
 
 impl Default for ApiConfig {
     fn default() -> Self {

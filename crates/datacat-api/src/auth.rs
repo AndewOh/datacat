@@ -36,7 +36,7 @@ pub struct AuthConfig {
 impl AuthConfig {
     pub fn from_env() -> Self {
         let admin_url = std::env::var("DATACAT_ADMIN_URL")
-            .unwrap_or_else(|_| "http://localhost:9092".to_string());
+            .unwrap_or_else(|_| "http://localhost:9093".to_string());
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .build()

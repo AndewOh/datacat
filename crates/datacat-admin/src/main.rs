@@ -1,7 +1,7 @@
-//! datacat-admin — 테넌트 관리 & 라이선스 서비스 (port 9092)
+//! datacat-admin — 테넌트 관리 & 라이선스 서비스 (port 9093)
 //!
 //! 환경변수:
-//!   DATACAT_LISTEN_ADDR       — 바인딩 주소 (기본: 0.0.0.0:9092)
+//!   DATACAT_LISTEN_ADDR       — 바인딩 주소 (기본: 0.0.0.0:9093)
 //!   DATACAT_LICENSE_SECRET    — HMAC-SHA256 서명 키 (기본: dev_secret_change_in_prod)
 //!
 //! SECURITY NOTE:
@@ -25,7 +25,7 @@ use state::AppState;
 use tenant::{Plan, Tenant};
 
 fn default_listen_addr() -> String {
-    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:9092".to_string())
+    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:9093".to_string())
 }
 
 fn default_license_secret() -> String {

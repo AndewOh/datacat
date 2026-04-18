@@ -34,9 +34,15 @@ pub struct QueryConfig {
     pub clickhouse_db: String,
 }
 
-fn default_listen_addr() -> String { "0.0.0.0:8080".to_string() }
-fn default_clickhouse_url() -> String { "http://localhost:8123".to_string() }
-fn default_clickhouse_db() -> String { "datacat".to_string() }
+fn default_listen_addr() -> String {
+    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string())
+}
+fn default_clickhouse_url() -> String {
+    std::env::var("DATACAT_CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string())
+}
+fn default_clickhouse_db() -> String {
+    std::env::var("DATACAT_CLICKHOUSE_DB").unwrap_or_else(|_| "datacat".to_string())
+}
 
 impl Default for QueryConfig {
     fn default() -> Self {

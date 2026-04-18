@@ -698,7 +698,7 @@ pub fn build_router(state: Arc<ApiState>) -> Router {
 
     // Admin 프록시 라우트 — 네트워크 레벨에서 프라이빗 접근만 허용할 것
     let admin_routes = Router::new()
-        .route("/api/v1/admin/{*path}", any(admin_proxy_handler));
+        .route("/api/v1/admin/*path", any(admin_proxy_handler));
 
     // 인증이 필요한 API 라우트
     let api_routes = Router::new()

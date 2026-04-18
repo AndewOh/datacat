@@ -1,0 +1,56 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+   Compiling bitflags v2.11.1
+   Compiling serde v1.0.228
+   Compiling tracing v0.1.44
+   Compiling system-configuration-sys v0.6.0
+   Compiling core-foundation v0.9.4
+   Compiling core-foundation v0.10.1
+   Compiling security-framework-sys v2.17.0
+   Compiling sync_wrapper v1.0.2
+   Compiling ipnet v2.12.0
+   Compiling fastrand v2.4.1
+   Compiling h2 v0.4.13
+   Compiling rustix v1.1.4
+   Compiling tower v0.5.3
+   Compiling system-configuration v0.7.0
+   Compiling security-framework v3.7.0
+   Compiling tungstenite v0.24.0
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling serde_urlencoded v0.7.1
+   Compiling url v2.5.8
+   Compiling toml_edit v0.22.27
+   Compiling futures-executor v0.3.32
+   Compiling iri-string v0.7.12
+   Compiling tempfile v3.27.0
+   Compiling futures v0.3.32
+   Compiling native-tls v0.2.18
+   Compiling tokio-tungstenite v0.24.0
+   Compiling ron v0.8.1
+   Compiling axum-core v0.4.5
+   Compiling tokio-native-tls v0.3.1
+   Compiling json5 v0.4.1
+   Compiling tracing-serde v0.2.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling chrono v0.4.44
+   Compiling tower-http v0.6.8
+   Compiling tower-http v0.5.2
+   Compiling uuid v1.23.1
+   Compiling toml v0.8.23
+   Compiling config v0.14.1
+   Compiling hyper v1.9.0
+   Compiling hyper-util v0.1.20
+   Compiling hyper-tls v0.6.0
+   Compiling clickhouse v0.12.2
+   Compiling axum v0.7.9
+   Compiling reqwest v0.12.28
+   Compiling datacat-alerting v0.1.0 (/Users/kaflix/Projects/datacat/crates/datacat-alerting)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.24s
+     Running `target/debug/datacat-alerting`
+{"timestamp":"2026-04-18T05:20:24.637406Z","level":"INFO","fields":{"message":"datacat-alerting 시작","version":"0.1.0"},"target":"datacat_alerting"}
+{"timestamp":"2026-04-18T05:20:24.643491Z","level":"INFO","fields":{"message":"평가 엔진 시작"},"target":"datacat_alerting::evaluator"}
+{"timestamp":"2026-04-18T05:20:24.644092Z","level":"INFO","fields":{"message":"Alerting API 서버 대기 중","addr":"0.0.0.0:9090"},"target":"datacat_alerting"}

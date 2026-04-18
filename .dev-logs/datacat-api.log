@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+   Compiling futures-util v0.3.32
+   Compiling hyper v1.9.0
+   Compiling datacat-common v0.1.0 (/Users/kaflix/Projects/datacat/crates/datacat-common)
+   Compiling tower v0.4.13
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling tokio-tungstenite v0.24.0
+   Compiling axum-core v0.4.5
+   Compiling tower-http v0.6.8
+   Compiling hyper-tls v0.6.0
+   Compiling reqwest v0.12.28
+   Compiling axum v0.7.9
+   Compiling datacat-api v0.1.0 (/Users/kaflix/Projects/datacat/crates/datacat-api)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 17s
+     Running `target/debug/datacat-api`
+{"timestamp":"2026-04-18T05:21:00.080570Z","level":"INFO","fields":{"message":"datacat-api 시작","version":"0.1.0"},"target":"datacat_api"}
+
+thread 'main' (89492380) panicked at crates/datacat-api/src/routes.rs:701:10:
+Invalid route "/api/v1/admin/{*path}": catch-all parameters are only allowed at the end of a route
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
