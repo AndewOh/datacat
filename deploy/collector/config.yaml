@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+
+exporters:
+  kafka/spans:
+    brokers: ["redpanda:29092"]
+    topic: datacat.spans
+    encoding: otlp_proto
+  kafka/metrics:
+    brokers: ["redpanda:29092"]
+    topic: datacat.metrics
+    encoding: otlp_proto
+  kafka/logs:
+    brokers: ["redpanda:29092"]
+    topic: datacat.logs
+    encoding: otlp_proto
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/spans]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/metrics]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [kafka/logs]
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888

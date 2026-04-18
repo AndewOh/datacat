@@ -1,0 +1,61 @@
+datacat has been installed. Release name: {{ .Release.Name }}
+
+=== Accessing the UI ===
+
+{{- if .Values.ingress.enabled }}
+The Ingress is enabled. Access datacat at:
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+
+{{- else }}
+The Ingress is disabled. Use port-forward to access services locally:
+
+  # Web UI (React frontend)
+  kubectl port-forward svc/{{ include "datacat.fullname" . }}-web 3000:3000 -n {{ .Release.Namespace }}
+  open http://localhost:3000
+
+  # API gateway
+  kubectl port-forward svc/{{ include "datacat.fullname" . }}-api 8000:8000 -n {{ .Release.Namespace }}
+
+  # OTLP HTTP ingest (send traces/logs/metrics here)
+  kubectl port-forward svc/{{ include "datacat.fullname" . }}-collector 4318:4318 -n {{ .Release.Namespace }}
+
+  # OTLP gRPC ingest
+  kubectl port-forward svc/{{ include "datacat.fullname" . }}-collector 4317:4317 -n {{ .Release.Namespace }}
+
+To enable the Ingress, upgrade with:
+  helm upgrade {{ .Release.Name }} ./deploy/helm/datacat \
+    --set ingress.enabled=true \
+    --set ingress.host=datacat.yourdomain.com
+{{- end }}
+
+=== Dependency Status ===
+
+{{- if .Values.clickhouse.enabled }}
+ClickHouse is managed by this chart (bundled).
+{{- else }}
+ClickHouse is disabled — provide DATACAT_CLICKHOUSE_URL externally.
+{{- end }}
+
+{{- if .Values.redpanda.enabled }}
+Redpanda is managed by this chart (bundled, single-replica).
+{{- else }}
+Redpanda is disabled — provide DATACAT_KAFKA_BROKERS externally.
+{{- end }}
+
+=== Production Checklist ===
+
+  1. Override the ClickHouse password:
+       --set-string 'clickhouse.auth.password=<strong-password>'
+     or mount a Kubernetes Secret and reference it.
+
+  2. Override the admin license secret:
+       --set-string 'admin.licenseSecret=<your-license-key>'
+
+  3. Enable TLS via cert-manager:
+       --set ingress.tls=true
+       (create a ClusterIssuer first)
+
+  4. Scale collectors horizontally for high-throughput:
+       --set collector.replicas=4
+
+  5. Review PVC storage classes — defaults to cluster default StorageClass.

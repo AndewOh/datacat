@@ -1,0 +1,32 @@
+{{- if .Values.redpanda.enabled }}
+# Headless service — used by StatefulSet pods for stable DNS names.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-redpanda
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "redpanda") | nindent 4 }}
+  ports:
+    - name: kafka-internal
+      port: 29092
+      targetPort: kafka-internal
+      protocol: TCP
+    - name: kafka-external
+      port: 9092
+      targetPort: kafka-external
+      protocol: TCP
+    - name: schema-registry
+      port: 8081
+      targetPort: schema-registry
+      protocol: TCP
+    - name: admin
+      port: 9644
+      targetPort: admin
+      protocol: TCP
+{{- end }}

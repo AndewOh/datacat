@@ -1,0 +1,41 @@
+{{- if .Values.clickhouse.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-clickhouse
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "clickhouse") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8123
+      targetPort: http
+      protocol: TCP
+    - name: native
+      port: 9000
+      targetPort: native
+      protocol: TCP
+---
+# Headless service used by the StatefulSet for stable DNS entries.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-clickhouse-headless
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "clickhouse") | nindent 4 }}
+  ports:
+    - name: native
+      port: 9000
+      targetPort: native
+      protocol: TCP
+{{- end }}

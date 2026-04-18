@@ -1,0 +1,125 @@
+/* ─── CSS Custom Properties ─────────────────────────────────────────────────── */
+:root {
+  /* Dark theme palette */
+  --color-bg-base: #0D1117;
+  --color-bg-surface: #161B22;
+  --color-bg-raised: #1C2128;
+
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: rgba(230, 237, 243, 0.7);
+  --color-text-muted: rgba(255, 255, 255, 0.3);
+
+  /* Accent */
+  --color-accent-blue: #4A90E2;
+  --color-accent-blue-dim: rgba(74, 144, 226, 0.12);
+
+  /* Status */
+  --color-success: #4caf76;
+  --color-warning: #f0c060;
+  --color-error: #E24A4A;
+
+  /* XView point colors */
+  --color-point-success: rgba(74, 144, 226, 0.8);
+  --color-point-error: rgba(226, 74, 74, 0.9);
+
+  /* Layout */
+  --sidebar-width: 200px;
+  --topbar-height: 48px;
+
+  /* Typography */
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+
+  /* Timing */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.2s ease;
+}
+
+/* ─── Reset ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────────── */
+code, pre, kbd {
+  font-family: var(--font-mono);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Focus styles ───────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

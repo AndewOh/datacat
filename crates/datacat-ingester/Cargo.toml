@@ -1,0 +1,41 @@
+[package]
+name = "datacat-ingester"
+description = "Redpanda consumer → ClickHouse 배치 writer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "datacat-ingester"
+path = "src/main.rs"
+
+[dependencies]
+datacat-proto = { path = "../datacat-proto" }
+datacat-common = { path = "../datacat-common" }
+datacat-schema = { path = "../datacat-schema" }
+
+tokio = { workspace = true }
+rdkafka = { workspace = true }
+clickhouse = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+prost = { workspace = true }
+arrow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+config = { workspace = true }
+chrono = { workspace = true }
+
+# OTLP proto 디코딩
+opentelemetry-proto = { version = "0.31", features = ["gen-tonic-messages", "with-serde"] }
+
+# hex 인코딩 (trace_id/span_id bytes → hex string)
+hex = "0.4"
+
+# DateTime64 변환용 (clickhouse-rs DateTime64 ↔ OffsetDateTime)
+time = { version = "0.3", features = ["serde"] }

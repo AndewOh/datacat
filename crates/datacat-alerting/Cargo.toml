@@ -1,0 +1,19 @@
+[package]
+name = "datacat-alerting"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clickhouse = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
+uuid = { workspace = true }
+chrono = { workspace = true }
+config = { workspace = true }
+tower-http = { workspace = true }

@@ -1,0 +1,228 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda start
+      - --smp 2
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --schema-registry-addr 0.0.0.0:8081
+    ports:
+      - "9092:9092"
+      - "8081:8081"
+      - "9644:9644"    # admin
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redpanda-init:
+    image: redpandadata/redpanda:v24.2.7
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    command: >
+      rpk topic create
+        datacat.spans
+        datacat.logs
+        datacat.metrics
+        datacat.profiles
+        --brokers redpanda:29092
+        --partitions 16
+        --replicas 1
+    restart: "no"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # native
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/datacat.xml:ro
+    environment:
+      CLICKHOUSE_DB: datacat
+      CLICKHOUSE_USER: datacat
+      CLICKHOUSE_PASSWORD: datacat_dev
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  collector:
+    # dev 프로파일 전용: full 프로파일에서는 datacat-collector가 4317/4318을 사용한다.
+    # 두 서비스를 동시에 기동하면 host port 충돌이 발생하므로 profiles로 분리한다.
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # metrics
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    profiles: ["dev"]
+
+  # Phase 1에서 datacat-collector로 교체될 예정
+  # 지금은 OTel Collector를 임시로 사용 (docker compose --profile dev up)
+
+  # -------------------------------------------------------------------------
+  # Full-stack datacat services — Phase 7 on-prem packaging
+  # -------------------------------------------------------------------------
+  # Prerequisites: build local Docker images first (or they will be built
+  # automatically on first `docker compose --profile full up`).
+  #
+  # Usage:
+  #   docker compose --profile full up          # start everything
+  #   docker compose --profile full up -d       # detached
+  #   docker compose --profile full down -v     # tear down + remove volumes
+  # -------------------------------------------------------------------------
+
+  datacat-collector:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.collector
+    image: datacat-collector:dev
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      DATACAT_KAFKA_BROKERS: "redpanda:29092"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-ingester:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.ingester
+    image: datacat-ingester:dev
+    environment:
+      DATACAT_KAFKA_BROKERS: "redpanda:29092"
+      DATACAT_CLICKHOUSE_URL: "http://clickhouse:8123"
+      DATACAT_CLICKHOUSE_USER: "datacat"
+      DATACAT_CLICKHOUSE_PASSWORD: "datacat_dev"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-query:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.query
+    image: datacat-query:dev
+    ports:
+      - "8001:8001"
+    environment:
+      DATACAT_CLICKHOUSE_URL: "http://clickhouse:8123"
+      DATACAT_CLICKHOUSE_USER: "datacat"
+      DATACAT_CLICKHOUSE_PASSWORD: "datacat_dev"
+      DATACAT_LISTEN_ADDR: "0.0.0.0:8001"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: datacat-api:dev
+    ports:
+      - "8000:8000"
+    environment:
+      DATACAT_LISTEN_ADDR: "0.0.0.0:8000"
+      DATACAT_QUERY_SERVICE_URL: "http://datacat-query:8001"
+      DATACAT_INSIGHTS_SERVICE_URL: "http://datacat-insights:9091"
+      DATACAT_ADMIN_URL: "http://datacat-admin:9092"
+    depends_on:
+      - datacat-query
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-alerting:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.alerting
+    image: datacat-alerting:dev
+    ports:
+      - "9090:9090"
+    environment:
+      DATACAT_LISTEN_ADDR: "0.0.0.0:9090"
+      DATACAT_CLICKHOUSE_URL: "http://clickhouse:8123"
+      DATACAT_CLICKHOUSE_USER: "datacat"
+      DATACAT_CLICKHOUSE_PASSWORD: "datacat_dev"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-insights:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.insights
+    image: datacat-insights:dev
+    ports:
+      - "9091:9091"
+    environment:
+      DATACAT_LISTEN_ADDR: "0.0.0.0:9091"
+      DATACAT_CLICKHOUSE_URL: "http://clickhouse:8123"
+      DATACAT_CLICKHOUSE_USER: "datacat"
+      DATACAT_CLICKHOUSE_PASSWORD: "datacat_dev"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-admin:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.admin
+    image: datacat-admin:dev
+    ports:
+      # Host port 19092 avoids conflict with the redpanda OUTSIDE listener on 9092
+      - "19092:9092"
+    environment:
+      DATACAT_LISTEN_ADDR: "0.0.0.0:9092"
+      DATACAT_LICENSE_SECRET: "change_me_in_production"
+    profiles: ["full"]
+    restart: unless-stopped
+
+  datacat-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    image: datacat-web:dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - datacat-api
+    profiles: ["full"]
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:
+  clickhouse-data:

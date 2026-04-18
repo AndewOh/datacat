@@ -1,0 +1,11 @@
+<clickhouse>
+    <logger>
+        <level>warning</level>
+        <console>true</console>
+    </logger>
+    <max_connections>1000</max_connections>
+    <max_concurrent_queries>200</max_concurrent_queries>
+    <!-- 성능 튜닝 -->
+    <mark_cache_size>5368709120</mark_cache_size>   <!-- 5GB -->
+    <uncompressed_cache_size>8589934592</uncompressed_cache_size>  <!-- 8GB -->
+</clickhouse>

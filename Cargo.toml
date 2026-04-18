@@ -1,0 +1,60 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/datacat-proto",
+    "crates/datacat-common",
+    "crates/datacat-schema",
+    "crates/datacat-collector",
+    "crates/datacat-ingester",
+    "crates/datacat-query",
+    "crates/datacat-api",
+    "crates/datacat-alerting",
+    "crates/datacat-insights",
+    "crates/datacat-admin",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "AGPL-3.0"
+repository = "https://github.com/datacat-io/datacat"
+
+[workspace.dependencies]
+# async runtime
+tokio = { version = "1", features = ["full"] }
+# gRPC
+tonic = { version = "0.14", features = ["tls-ring", "transport", "server", "channel", "codegen"] }
+prost = "0.14"
+# HTTP
+hyper = { version = "1", features = ["full"] }
+# API framework
+axum = { version = "0.7", features = ["macros", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+# Kafka/Redpanda
+rdkafka = { version = "0.36", features = ["cmake-build"] }
+# ClickHouse
+clickhouse = { version = "0.12", features = ["inserter"] }
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bytes = "1"
+# Arrow
+arrow = { version = "54", features = ["prettyprint"] }
+arrow-flight = { version = "54" }
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Error handling
+anyhow = "1"
+thiserror = "1"
+# Config
+config = "0.14"
+# Benchmarking (dev)
+criterion = { version = "0.5", features = ["html_reports"] }
+# OTLP proto
+opentelemetry-proto = { version = "0.31", features = ["gen-tonic-messages", "with-serde"] }
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }

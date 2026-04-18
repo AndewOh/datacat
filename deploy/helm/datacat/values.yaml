@@ -1,0 +1,91 @@
+global:
+  image:
+    registry: ghcr.io/datacat
+    pullPolicy: IfNotPresent
+  env: production
+
+clickhouse:
+  enabled: true
+  image: clickhouse/clickhouse-server:24.3
+  persistence:
+    enabled: true
+    size: 50Gi
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "8Gi"
+      cpu: "4"
+
+redpanda:
+  enabled: true
+  image: redpandadata/redpanda:v24.2.7
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+
+collector:
+  replicas: 2
+  image:
+    repository: datacat-collector
+    tag: latest
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "500m"
+
+ingester:
+  replicas: 2
+  image:
+    repository: datacat-ingester
+    tag: latest
+
+query:
+  replicas: 2
+  image:
+    repository: datacat-query
+    tag: latest
+
+api:
+  replicas: 2
+  image:
+    repository: datacat-api
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8000
+
+alerting:
+  replicas: 1
+  image:
+    repository: datacat-alerting
+    tag: latest
+
+insights:
+  replicas: 1
+  image:
+    repository: datacat-insights
+    tag: latest
+
+admin:
+  replicas: 1
+  image:
+    repository: datacat-admin
+    tag: latest
+
+web:
+  replicas: 2
+  image:
+    repository: datacat-web
+    tag: latest
+
+ingress:
+  enabled: false
+  className: nginx
+  host: datacat.example.com
+  tls: false

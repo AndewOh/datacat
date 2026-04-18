@@ -1,0 +1,12 @@
+{{- if .Values.clickhouse.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "datacat.fullname" . }}-clickhouse-init
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+data:
+  init.sql: |
+    {{- .Files.Get "files/init.sql" | nindent 4 }}
+{{- end }}

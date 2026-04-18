@@ -1,0 +1,16 @@
+[package]
+name = "datacat-common"
+description = "공유 도메인 타입 — Span, Log, Metric, Tag, TenantId"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }

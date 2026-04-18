@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-api
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "api") | nindent 8 }}
+    spec:
+      containers:
+        - name: api
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.api.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATACAT_LISTEN_ADDR
+              value: "0.0.0.0:8000"
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+            # Internal service URLs — resolved via kube-dns
+            - name: DATACAT_QUERY_SERVICE_URL
+              value: "http://{{ include "datacat.fullname" . }}-query:8001"
+            - name: DATACAT_INSIGHTS_URL
+              value: "http://{{ include "datacat.fullname" . }}-insights:9091"
+            - name: DATACAT_ADMIN_URL
+              value: "http://{{ include "datacat.fullname" . }}-admin:9092"
+            - name: DATACAT_ALERTING_URL
+              value: "http://{{ include "datacat.fullname" . }}-alerting:9090"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2

@@ -1,0 +1,452 @@
+{{/* -----------------------------------------------------------------------
+     datacat-collector  — OTLP ingest, gRPC 4317 + HTTP 4318
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-collector
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  replicas: {{ .Values.collector.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "collector") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "collector") | nindent 8 }}
+    spec:
+      containers:
+        - name: collector
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.collector.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+              protocol: TCP
+            - name: otlp-http
+              containerPort: 4318
+              protocol: TCP
+          env:
+            - name: DATACAT_KAFKA_BROKERS
+              value: "{{ include "datacat.fullname" . }}-redpanda:29092"
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-collector
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "collector") | nindent 4 }}
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+---
+{{/* -----------------------------------------------------------------------
+     datacat-ingester  — Kafka → ClickHouse writer
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-ingester
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingester
+spec:
+  replicas: {{ .Values.ingester.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "ingester") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "ingester") | nindent 8 }}
+    spec:
+      containers:
+        - name: ingester
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.ingester.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          env:
+            - name: DATACAT_KAFKA_BROKERS
+              value: "{{ include "datacat.fullname" . }}-redpanda:29092"
+            - name: DATACAT_CLICKHOUSE_URL
+              value: "http://{{ include "datacat.fullname" . }}-clickhouse:8123"
+            - name: DATACAT_CLICKHOUSE_USER
+              value: datacat
+            - name: DATACAT_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datacat.fullname" . }}-clickhouse-secret
+                  key: password
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+---
+{{/* -----------------------------------------------------------------------
+     datacat-query  — ClickHouse query service, port 8001
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-query
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: query
+spec:
+  replicas: {{ .Values.query.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "query") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "query") | nindent 8 }}
+    spec:
+      containers:
+        - name: query
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.query.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+          env:
+            - name: DATACAT_LISTEN_ADDR
+              value: "0.0.0.0:8001"
+            - name: DATACAT_CLICKHOUSE_URL
+              value: "http://{{ include "datacat.fullname" . }}-clickhouse:8123"
+            - name: DATACAT_CLICKHOUSE_USER
+              value: datacat
+            - name: DATACAT_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datacat.fullname" . }}-clickhouse-secret
+                  key: password
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-query
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: query
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "query") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+      protocol: TCP
+---
+{{/* -----------------------------------------------------------------------
+     datacat-alerting  — Alerting service, port 9090
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-alerting
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alerting
+spec:
+  replicas: {{ .Values.alerting.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "alerting") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "alerting") | nindent 8 }}
+    spec:
+      containers:
+        - name: alerting
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.alerting.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: DATACAT_LISTEN_ADDR
+              value: "0.0.0.0:9090"
+            - name: DATACAT_CLICKHOUSE_URL
+              value: "http://{{ include "datacat.fullname" . }}-clickhouse:8123"
+            - name: DATACAT_CLICKHOUSE_USER
+              value: datacat
+            - name: DATACAT_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datacat.fullname" . }}-clickhouse-secret
+                  key: password
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-alerting
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alerting
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "alerting") | nindent 4 }}
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP
+---
+{{/* -----------------------------------------------------------------------
+     datacat-insights  — AI auto-ops, port 9091
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-insights
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: insights
+spec:
+  replicas: {{ .Values.insights.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "insights") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "insights") | nindent 8 }}
+    spec:
+      containers:
+        - name: insights
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.insights.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: DATACAT_LISTEN_ADDR
+              value: "0.0.0.0:9091"
+            - name: DATACAT_CLICKHOUSE_URL
+              value: "http://{{ include "datacat.fullname" . }}-clickhouse:8123"
+            - name: DATACAT_CLICKHOUSE_USER
+              value: datacat
+            - name: DATACAT_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datacat.fullname" . }}-clickhouse-secret
+                  key: password
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-insights
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: insights
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "insights") | nindent 4 }}
+  ports:
+    - name: http
+      port: 9091
+      targetPort: http
+      protocol: TCP
+---
+{{/* -----------------------------------------------------------------------
+     datacat-admin  — Tenant admin, port 9092
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-admin
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+spec:
+  replicas: {{ .Values.admin.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "admin") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "admin") | nindent 8 }}
+    spec:
+      containers:
+        - name: admin
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.admin.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9092
+              protocol: TCP
+          env:
+            - name: DATACAT_LISTEN_ADDR
+              value: "0.0.0.0:9092"
+            - name: DATACAT_ENV
+              value: {{ .Values.global.env | quote }}
+            - name: DATACAT_LICENSE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datacat.fullname" . }}-admin-secret
+                  key: license-secret
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-admin
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "admin") | nindent 4 }}
+  ports:
+    - name: http
+      port: 9092
+      targetPort: http
+      protocol: TCP
+---
+# Secret for datacat-admin license key — override in production.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "datacat.fullname" . }}-admin-secret
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+type: Opaque
+stringData:
+  license-secret: "change_me_in_production"
+---
+{{/* -----------------------------------------------------------------------
+     datacat-web  — React frontend served by nginx, port 3000
+----------------------------------------------------------------------- */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datacat.fullname" . }}-web
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "web") | nindent 8 }}
+    spec:
+      containers:
+        - name: web
+          image: {{ include "datacat.image" (dict "root" . "image" .Values.web.image) }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "datacat.fullname" . }}-web
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "datacat.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

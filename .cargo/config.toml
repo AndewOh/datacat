@@ -1,0 +1,30 @@
+[build]
+# 빌드 아티팩트를 workspace root 기준 단일 target 디렉토리로 통합
+# 여러 crate 빌드 시 디스크 공간 절약 및 캐시 효율화
+target-dir = "target"
+
+[target.x86_64-unknown-linux-gnu]
+# Linux: mold 링커 사용 (lld 대비 더 빠른 링크 타임)
+# mold가 없을 경우 lld로 대체 가능
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[target.aarch64-apple-darwin]
+# Apple Silicon: zld 또는 기본 ld (mold는 macOS 미지원)
+rustflags = ["-C", "link-arg=-Wl,-ld_classic"]
+
+[target.x86_64-apple-darwin]
+rustflags = []
+
+# 프로파일 오버라이드: release 빌드 최적화
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+# 개발 빌드: 빠른 증분 컴파일
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true

@@ -1,0 +1,16 @@
+[package]
+name = "datacat-proto"
+description = "OTLP protobuf 타입 re-export (opentelemetry-proto 기반)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# OTLP 프로토콜 타입 — tonic gRPC 메시지 + serde 직렬화 포함
+opentelemetry-proto = { version = "0.31", features = ["gen-tonic-messages", "with-serde"] }
+prost = { workspace = true }
+tonic = { workspace = true }
+serde = { workspace = true }
+bytes = { workspace = true }

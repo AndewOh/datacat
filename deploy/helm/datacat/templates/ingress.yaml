@@ -1,0 +1,47 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "datacat.fullname" . }}
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ include "datacat.fullname" . }}-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # React SPA — served by datacat-web (nginx)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "datacat.fullname" . }}-web
+                port:
+                  name: http
+          # REST API gateway
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "datacat.fullname" . }}-api
+                port:
+                  name: http
+          # OTLP HTTP ingest
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "datacat.fullname" . }}-collector
+                port:
+                  name: otlp-http
+{{- end }}

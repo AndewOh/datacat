@@ -1,0 +1,88 @@
+{{- if .Values.redpanda.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "datacat.fullname" . }}-redpanda
+  labels:
+    {{- include "datacat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  # Single replica for community / on-prem deployments.
+  # For HA, scale to 3 replicas in an Enterprise values overlay.
+  replicas: 1
+  serviceName: {{ include "datacat.fullname" . }}-redpanda
+  selector:
+    matchLabels:
+      {{- include "datacat.selectorLabels" (dict "root" . "component" "redpanda") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datacat.selectorLabels" (dict "root" . "component" "redpanda") | nindent 8 }}
+    spec:
+      containers:
+        - name: redpanda
+          image: {{ .Values.redpanda.image }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          command:
+            - redpanda
+            - start
+            - --smp
+            - "2"
+            - --memory
+            - "512M"
+            - --overprovisioned
+            - --kafka-addr
+            - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+            - --advertise-kafka-addr
+            - PLAINTEXT://{{ include "datacat.fullname" . }}-redpanda:29092,OUTSIDE://localhost:9092
+            - --schema-registry-addr
+            - 0.0.0.0:8081
+          ports:
+            - name: kafka-internal
+              containerPort: 29092
+              protocol: TCP
+            - name: kafka-external
+              containerPort: 9092
+              protocol: TCP
+            - name: schema-registry
+              containerPort: 8081
+              protocol: TCP
+            - name: admin
+              containerPort: 9644
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+                - rpk
+                - cluster
+                - info
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - rpk
+                - cluster
+                - info
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+          resources:
+            {{- toYaml .Values.redpanda.resources | nindent 12 }}
+      # Topic initialisation job runs as a post-start lifecycle hook
+      # to avoid a separate Job resource dependency.
+      initContainers:
+        []
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.redpanda.persistence.size }}
+{{- end }}

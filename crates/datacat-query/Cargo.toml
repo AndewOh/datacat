@@ -1,0 +1,36 @@
+[package]
+name = "datacat-query"
+description = "Query API — Arrow Flight + REST (X-View 쿼리 핸들러)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "datacat-query"
+path = "src/main.rs"
+
+[dependencies]
+datacat-common = { path = "../datacat-common" }
+datacat-schema = { path = "../datacat-schema" }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+clickhouse = { workspace = true }
+arrow = { workspace = true }
+arrow-flight = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+config = { workspace = true }
+chrono = { workspace = true }
+
+# Phase 4: flamegraph — pprof base64 decode + gzip 압축 해제
+base64 = "0.22"
+flate2 = "1"

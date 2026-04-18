@@ -1,0 +1,13 @@
+# Build stage — includes cmake for rdkafka cmake-build feature
+FROM rust:1.82-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y cmake pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN cargo build --release -p datacat-collector
+
+# Runtime stage — minimal debian image
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/datacat-collector /usr/local/bin/datacat-collector
+EXPOSE 4317 4318
+CMD ["datacat-collector"]

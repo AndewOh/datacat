@@ -1,0 +1,12 @@
+[package]
+name = "datacat-schema"
+description = "ClickHouse DDL 스키마 상수 및 마이그레이션 헬퍼"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# 스키마 상수만 정의하므로 최소 의존성 유지
+thiserror = { workspace = true }

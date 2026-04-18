@@ -1,0 +1,19 @@
+# Rust
+target/
+# Cargo.lock: binary workspace이므로 커밋 포함
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# ClickHouse
+*.sql.bak
+
+# Docker
+.env
+.env.local
+
+# OS
+.DS_Store
+*.swp
