@@ -12,58 +12,27 @@ mod routes;
 
 use anyhow::Result;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 
 /// API Gateway 설정.
-#[derive(Debug, serde::Deserialize)]
 pub struct ApiConfig {
-    #[serde(default = "default_listen_addr")]
     pub listen_addr: String,
-
-    /// datacat-query 서비스 URL (내부 서비스 디스커버리)
-    #[serde(default = "default_query_service_url")]
     pub query_service_url: String,
-
-    /// datacat-insights 서비스 URL (기본: http://localhost:9091)
-    #[serde(default = "default_insights_service_url")]
     pub insights_service_url: String,
-
-    /// datacat-admin 서비스 URL (기본: http://localhost:9093)
-    #[serde(default = "default_admin_service_url")]
     pub admin_service_url: String,
 }
 
-fn default_listen_addr() -> String { "0.0.0.0:8000".to_string() }
-fn default_query_service_url() -> String { "http://localhost:8080".to_string() }
-fn default_insights_service_url() -> String { "http://localhost:9091".to_string() }
-fn default_admin_service_url() -> String { "http://localhost:9093".to_string() }
-
-impl Default for ApiConfig {
-    fn default() -> Self {
-        ApiConfig {
-            listen_addr: default_listen_addr(),
-            query_service_url: default_query_service_url(),
-            insights_service_url: default_insights_service_url(),
-            admin_service_url: default_admin_service_url(),
-        }
-    }
-}
-
 fn load_config() -> ApiConfig {
-    let builder = config::Config::builder()
-        .add_source(config::File::with_name("config").required(false))
-        .add_source(config::Environment::with_prefix("DATACAT").separator("_"));
-
-    match builder.build() {
-        Ok(cfg) => cfg.try_deserialize().unwrap_or_else(|e| {
-            warn!("설정 역직렬화 실패, 기본값 사용: {}", e);
-            ApiConfig::default()
-        }),
-        Err(e) => {
-            warn!("설정 로드 실패, 기본값 사용: {}", e);
-            ApiConfig::default()
-        }
+    ApiConfig {
+        listen_addr: std::env::var("DATACAT_LISTEN_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:8000".to_string()),
+        query_service_url: std::env::var("DATACAT_QUERY_SERVICE_URL")
+            .unwrap_or_else(|_| "http://localhost:8001".to_string()),
+        insights_service_url: std::env::var("DATACAT_INSIGHTS_SERVICE_URL")
+            .unwrap_or_else(|_| "http://localhost:9091".to_string()),
+        admin_service_url: std::env::var("DATACAT_ADMIN_URL")
+            .unwrap_or_else(|_| "http://localhost:9093".to_string()),
     }
 }
 

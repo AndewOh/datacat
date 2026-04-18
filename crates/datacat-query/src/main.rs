@@ -18,24 +18,18 @@ use axum::{
     routing::get,
 };
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 
 /// Query 서버 설정.
-#[derive(Debug, serde::Deserialize)]
 pub struct QueryConfig {
-    #[serde(default = "default_listen_addr")]
     pub listen_addr: String,
-
-    #[serde(default = "default_clickhouse_url")]
     pub clickhouse_url: String,
-
-    #[serde(default = "default_clickhouse_db")]
     pub clickhouse_db: String,
 }
 
 fn default_listen_addr() -> String {
-    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string())
+    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8001".to_string())
 }
 fn default_clickhouse_url() -> String {
     std::env::var("DATACAT_CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string())
@@ -44,30 +38,11 @@ fn default_clickhouse_db() -> String {
     std::env::var("DATACAT_CLICKHOUSE_DB").unwrap_or_else(|_| "datacat".to_string())
 }
 
-impl Default for QueryConfig {
-    fn default() -> Self {
-        QueryConfig {
-            listen_addr: default_listen_addr(),
-            clickhouse_url: default_clickhouse_url(),
-            clickhouse_db: default_clickhouse_db(),
-        }
-    }
-}
-
 fn load_config() -> QueryConfig {
-    let builder = config::Config::builder()
-        .add_source(config::File::with_name("config").required(false))
-        .add_source(config::Environment::with_prefix("DATACAT").separator("_"));
-
-    match builder.build() {
-        Ok(cfg) => cfg.try_deserialize().unwrap_or_else(|e| {
-            warn!("설정 역직렬화 실패, 기본값 사용: {}", e);
-            QueryConfig::default()
-        }),
-        Err(e) => {
-            warn!("설정 로드 실패, 기본값 사용: {}", e);
-            QueryConfig::default()
-        }
+    QueryConfig {
+        listen_addr: default_listen_addr(),
+        clickhouse_url: default_clickhouse_url(),
+        clickhouse_db: default_clickhouse_db(),
     }
 }
 
