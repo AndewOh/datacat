@@ -7,7 +7,7 @@
  * - 상위 timeRange와 동기화
  */
 
-import { useState, useCallback, useId } from 'react';
+import { useState, useCallback, useEffect, useId } from 'react';
 import type { CSSProperties } from 'react';
 import { LineChart } from '../Chart/LineChart';
 import { useMetrics, useMetricNames } from '../../hooks/useMetrics';
@@ -103,12 +103,34 @@ interface MetricsDashboardProps {
   timeRange: string;
 }
 
+const STORAGE_KEY = 'datacat:dashboard:panels';
+
 let _counter = 0;
 const nextId = () => `panel-${++_counter}`;
 
+function loadPanels(): PanelState[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (p): p is PanelState =>
+        typeof p === 'object' && p !== null &&
+        typeof p.id === 'string' && typeof p.query === 'string',
+    );
+  } catch {
+    return [];
+  }
+}
+
 export function MetricsDashboard({ timeRange }: MetricsDashboardProps) {
-  const [panels, setPanels] = useState<PanelState[]>([]);
+  const [panels, setPanels] = useState<PanelState[]>(loadPanels);
   const { names: availableMetrics, loading: namesLoading } = useMetricNames();
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(panels));
+  }, [panels]);
 
   const handleAdd = useCallback(() => {
     if (panels.length >= 4) return;
