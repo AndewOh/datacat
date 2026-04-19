@@ -1,0 +1,72 @@
+# =============================================================================
+# datacat OTel Collector — Docker Compose 오버레이
+# =============================================================================
+# 기존 docker-compose.yml에 OTel Collector를 추가합니다.
+#
+# 사용법:
+#   docker compose -f docker-compose.yml -f deploy/docker/docker-compose.otel.yml up
+#
+# 환경변수 (.env 파일에 설정):
+#   DATACAT_HOST=datacat.example.com:4317
+#
+# 앱 서비스에 다음 환경변수를 추가하면 자동 계측:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+#   OTEL_SERVICE_NAME=my-service
+# =============================================================================
+
+services:
+  # ─── OTel Collector 사이드카 ─────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: datacat-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./deploy/docker/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # Docker 메타데이터 감지용
+    environment:
+      DATACAT_GRPC_ENDPOINT: "${DATACAT_HOST:-localhost:4317}"
+    ports:
+      - "4317:4317"   # OTLP gRPC — 앱이 이 포트로 전송
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Collector 자체 메트릭
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - default
+
+# =============================================================================
+# 앱 서비스에 추가할 환경변수 예시
+# (기존 docker-compose.yml의 각 서비스에 추가)
+# =============================================================================
+# services:
+#   my-java-app:
+#     environment:
+#       JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+#       OTEL_SERVICE_NAME: "my-java-app"
+#       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+#       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+#       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
+#       OTEL_LOGS_EXPORTER: "otlp"
+#       OTEL_METRICS_EXPORTER: "otlp"
+#     depends_on:
+#       otel-collector:
+#         condition: service_healthy
+#
+#   my-python-app:
+#     command: ["opentelemetry-instrument", "python", "app.py"]
+#     environment:
+#       OTEL_SERVICE_NAME: "my-python-app"
+#       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+#       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+#       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
+#
+#   my-node-app:
+#     environment:
+#       NODE_OPTIONS: "--require /app/datacat-tracing.js"
+#       OTEL_SERVICE_NAME: "my-node-app"
+#       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+#       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

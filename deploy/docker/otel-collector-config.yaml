@@ -1,0 +1,77 @@
+# =============================================================================
+# datacat OTel Collector 설정 (Docker / Docker Compose)
+# =============================================================================
+# docker-compose.otel.yml에서 참조합니다.
+# 앱 컨테이너 → OTel Collector → datacat collector
+# =============================================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus 메트릭 스크랩 (기존 Prometheus 앱 호환)
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: docker-services
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 30s
+          relabel_configs:
+            - source_labels: [__meta_docker_container_label_prometheus_scrape]
+              regex: "true"
+              action: keep
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  # Docker 컨테이너 메타데이터 자동 주입
+  resourcedetection:
+    detectors: [docker, env, system]
+    timeout: 5s
+    override: false
+
+exporters:
+  otlp/datacat:
+    endpoint: ${DATACAT_GRPC_ENDPOINT}   # docker-compose.otel.yml에서 주입
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_elapsed_time: 120s
+    sending_queue:
+      enabled: true
+      queue_size: 2000
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlp/datacat]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlp/datacat]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlp/datacat]
+
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      address: 0.0.0.0:8888

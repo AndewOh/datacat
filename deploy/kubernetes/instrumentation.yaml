@@ -1,0 +1,97 @@
+# =============================================================================
+# datacat OpenTelemetry Instrumentation CR
+# =============================================================================
+# OpenTelemetry Operator가 이 CR을 참조하여 pod에 OTel agent를 자동 inject합니다.
+#
+# 사용법:
+#   kubectl apply -f instrumentation.yaml
+#
+# Pod/Namespace에 어노테이션 추가:
+#   Java:   instrumentation.opentelemetry.io/inject-java: "datacat/datacat-instrumentation"
+#   Python: instrumentation.opentelemetry.io/inject-python: "datacat/datacat-instrumentation"
+#   Node.js: instrumentation.opentelemetry.io/inject-nodejs: "datacat/datacat-instrumentation"
+#   .NET:   instrumentation.opentelemetry.io/inject-dotnet: "datacat/datacat-instrumentation"
+# =============================================================================
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: datacat-instrumentation
+  namespace: datacat
+spec:
+  # ─── Exporter ───────────────────────────────────────────────────────────────
+  # OTel Collector 게이트웨이(otelcollector.yaml)로 전송 후 datacat으로 포워딩
+  exporter:
+    endpoint: http://datacat-collector.datacat.svc.cluster.local:4317
+
+  # ─── 공통 리소스 속성 ────────────────────────────────────────────────────────
+  resource:
+    resourceAttributes:
+      deployment.environment: production   # 환경에 맞게 변경
+
+  # ─── Propagation ────────────────────────────────────────────────────────────
+  propagators:
+    - tracecontext   # W3C TraceContext (표준)
+    - baggage
+    - b3             # Zipkin B3 (레거시 서비스 호환)
+
+  # ─── Sampling ───────────────────────────────────────────────────────────────
+  sampler:
+    type: always_on  # 개발/스테이징용; 프로덕션에서는 parentbased_traceidratio 권장
+
+  # ─── Java ───────────────────────────────────────────────────────────────────
+  java:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:latest
+    env:
+      - name: OTEL_INSTRUMENTATION_JDBC_ENABLED
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_SPRING_WEBMVC_ENABLED
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_KAFKA_ENABLED
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_REDIS_ENABLED
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_MONGO_ENABLED
+        value: "true"
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp
+
+  # ─── Python ─────────────────────────────────────────────────────────────────
+  python:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:latest
+    env:
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp
+      - name: OTEL_PYTHON_LOG_CORRELATION
+        value: "true"
+
+  # ─── Node.js ─────────────────────────────────────────────────────────────────
+  nodejs:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:latest
+    env:
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp
+      - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+        value: http,express,grpc,redis,mysql,pg,mongodb,kafka-js
+
+  # ─── .NET ────────────────────────────────────────────────────────────────────
+  dotnet:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:latest
+    env:
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: otlp
+
+  # ─── Go ──────────────────────────────────────────────────────────────────────
+  # Go 자동 계측은 eBPF 기반으로 Linux 커널 4.14+ 필요
+  go:
+    image: ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:latest
+    env:
+      - name: OTEL_GO_AUTO_SHOW_VERIFIER_LOG
+        value: "false"
