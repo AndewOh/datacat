@@ -370,3 +370,53 @@ pub async fn list_services(
         .map(|r| ServiceInfo { name: r.service, env: r.env })
         .collect())
 }
+
+// ---------------------------------------------------------------------------
+// 단위 테스트
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Aggregation::from_str ---
+
+    #[test]
+    fn from_str_known_variants_lowercase() {
+        assert_eq!(Aggregation::from_str("sum"), Aggregation::Sum);
+        assert_eq!(Aggregation::from_str("max"), Aggregation::Max);
+        assert_eq!(Aggregation::from_str("min"), Aggregation::Min);
+        assert_eq!(Aggregation::from_str("rate"), Aggregation::Rate);
+        assert_eq!(Aggregation::from_str("avg"), Aggregation::Avg);
+    }
+
+    #[test]
+    fn from_str_is_case_insensitive() {
+        assert_eq!(Aggregation::from_str("SUM"), Aggregation::Sum);
+        assert_eq!(Aggregation::from_str("Rate"), Aggregation::Rate);
+        assert_eq!(Aggregation::from_str("MAX"), Aggregation::Max);
+    }
+
+    #[test]
+    fn from_str_unknown_falls_back_to_avg() {
+        assert_eq!(Aggregation::from_str("p99"), Aggregation::Avg);
+        assert_eq!(Aggregation::from_str(""), Aggregation::Avg);
+        assert_eq!(Aggregation::from_str("median"), Aggregation::Avg);
+    }
+
+    // --- Aggregation::sql_fn ---
+
+    #[test]
+    fn sql_fn_standard_aggregations() {
+        assert_eq!(Aggregation::Avg.sql_fn(), "avg");
+        assert_eq!(Aggregation::Sum.sql_fn(), "sum");
+        assert_eq!(Aggregation::Max.sql_fn(), "max");
+        assert_eq!(Aggregation::Min.sql_fn(), "min");
+    }
+
+    #[test]
+    fn sql_fn_rate_uses_sum() {
+        // Rate normalises by step *after* the query; ClickHouse must aggregate with sum first.
+        assert_eq!(Aggregation::Rate.sql_fn(), "sum");
+    }
+}

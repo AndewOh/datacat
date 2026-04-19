@@ -445,3 +445,86 @@ pub async fn delete_log_metric_rule_handler(
     info!(rule_id = %rule_id, "log metric rule 삭제 완료");
     StatusCode::NO_CONTENT.into_response()
 }
+
+// ---------------------------------------------------------------------------
+// 단위 테스트
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- escape_string ---
+
+    #[test]
+    fn escape_string_backslash_only() {
+        assert_eq!(escape_string("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn escape_string_single_quote_only() {
+        assert_eq!(escape_string("a'b"), "a\\'b");
+    }
+
+    #[test]
+    fn escape_string_combined_backslash_and_quote() {
+        // Input: a\'b  (backslash then quote)
+        // Expected: a\\\\'b  — backslash escaped first → a\\\'b, then quote escaped → a\\\'b
+        // Rust string literal: backslash → "\\\\", quote → "\\'"
+        assert_eq!(escape_string("a\\'b"), "a\\\\\\'b");
+    }
+
+    #[test]
+    fn escape_string_empty() {
+        assert_eq!(escape_string(""), "");
+    }
+
+    #[test]
+    fn escape_string_no_special_chars() {
+        assert_eq!(escape_string("hello_world"), "hello_world");
+    }
+
+    // --- build_filter_expr ---
+
+    #[test]
+    fn build_filter_expr_keyword() {
+        let result = build_filter_expr("keyword", "error").unwrap();
+        assert_eq!(result, "hasToken(body, 'error')");
+    }
+
+    #[test]
+    fn build_filter_expr_severity() {
+        let result = build_filter_expr("severity", "ERROR").unwrap();
+        assert_eq!(result, "severity_text = 'ERROR'");
+    }
+
+    #[test]
+    fn build_filter_expr_service() {
+        let result = build_filter_expr("service", "api-gateway").unwrap();
+        assert_eq!(result, "service = 'api-gateway'");
+    }
+
+    #[test]
+    fn build_filter_expr_body_regex() {
+        let result = build_filter_expr("body_regex", "^ERR.*").unwrap();
+        assert_eq!(result, "match(body, '^ERR.*')");
+    }
+
+    #[test]
+    fn build_filter_expr_unknown_type_returns_err() {
+        let result = build_filter_expr("unsupported_type", "value");
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("unsupported_type"),
+            "error message should include the unknown type name; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn build_filter_expr_escapes_value_inside_expression() {
+        // filter_value with a single quote must be escaped inside the generated SQL
+        let result = build_filter_expr("keyword", "O'Brien").unwrap();
+        assert_eq!(result, "hasToken(body, 'O\\'Brien')");
+    }
+}
