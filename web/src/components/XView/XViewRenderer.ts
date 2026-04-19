@@ -6,8 +6,9 @@
  * 구조:
  *  - VAO + interleaved VBO (position xy + status float) → 캐시 일관성 극대화
  *  - Instanced 아님: gl.drawArrays(POINTS) → GPU 파이프라인 단순 유지
- *  - selectInRect: CPU-side AABB 필터 (GPU readback은 너무 느림)
+ *  - selectInDataRect: CPU-side AABB 필터 (GPU readback은 너무 느림)
  *  - 정규화 좌표계: 데이터 범위를 [0,1]로 정규화 후 shader에서 NDC 변환
+ *  - Y축: log1p 스케일 적용으로 빠른 트랜잭션과 느린 트랜잭션 고르게 분포
  */
 
 import type { XViewPoint, Viewport } from './types';
@@ -89,15 +90,20 @@ export class XViewRenderer {
   // Uniform locations
   private readonly uTransform: WebGLUniformLocation;
 
-  // CPU-side data cache for selectInRect (avoids GPU readback)
+  // CPU-side data cache for selectInDataRect (avoids GPU readback)
+  // Stored as log1p-normalized [0,1] values — same space as GPU data
   private cpuData: Float32Array = new Float32Array(0);
   private pointCount: number = 0;
 
-  // Normalized data extents (computed in setData)
+  // Normalized data extents (computed in setData, raw ms values)
   private dataXMin: number = 0;
   private dataXMax: number = 1;
-  private dataYMin: number = 0;
-  private dataYMax: number = 1;
+  private dataYMin: number = 0;   // raw ms (clamped >= 0)
+  private dataYMax: number = 1;   // raw ms
+
+  // log1p of extent boundaries (pre-computed for Y normalization)
+  private logYMin: number = 0;
+  private logYMax: number = 0;
 
   // FPS tracking
   private lastFrameTime: number = 0;
@@ -163,6 +169,7 @@ export class XViewRenderer {
   /**
    * Upload point data to GPU.
    * Computes normalization ranges from the dataset.
+   * Y axis uses log1p scale for perceptual uniformity across response time decades.
    * O(n) — call once per data update, not per frame.
    */
   setData(points: XViewPoint[]): void {
@@ -191,13 +198,19 @@ export class XViewRenderer {
     const yPad = (yMax - yMin) * 0.02;
     this.dataXMin = xMin - xPad;
     this.dataXMax = xMax + xPad;
-    this.dataYMin = yMin - yPad;
+    // Clamp Y min to 0 to avoid log1p of negative (log1p(-1) = -Infinity)
+    this.dataYMin = Math.max(0, yMin - yPad);
     this.dataYMax = yMax + yPad;
 
-    const xRange = this.dataXMax - this.dataXMin;
-    const yRange = this.dataYMax - this.dataYMin;
+    // Pre-compute log boundaries for Y normalization
+    this.logYMin = Math.log1p(this.dataYMin);
+    this.logYMax = Math.log1p(this.dataYMax);
 
-    // Build interleaved Float32Array: [nx, ny, status, ...]
+    const xRange  = this.dataXMax - this.dataXMin;
+    const logYRange = this.logYMax - this.logYMin;
+
+    // Build interleaved Float32Array: [nx, ny_log, status, ...]
+    // ny is log1p-normalized so equal visual distance = equal decades of response time
     const data = new Float32Array(points.length * 3);
     this.spanIds = new Array(points.length);
 
@@ -205,7 +218,7 @@ export class XViewRenderer {
       const p = points[i];
       const base = i * 3;
       data[base]     = (p.x - this.dataXMin) / xRange;
-      data[base + 1] = (p.y - this.dataYMin) / yRange;
+      data[base + 1] = (Math.log1p(p.y) - this.logYMin) / logYRange;
       data[base + 2] = p.status;
       this.spanIds[i] = p.spanId;
     }
@@ -266,45 +279,20 @@ export class XViewRenderer {
   }
 
   /**
-   * Return span IDs of all points within the canvas-pixel selection rect.
-   * Pure CPU operation — no GPU readback, guaranteed <16ms for 1M points.
+   * Return span IDs of all points within the data-normalized [0,1] selection rect.
+   * Operates on cpuData which stores log1p-normalized Y values.
+   * The dnBottom/dnTop arguments must also be in [0,1] log-normalized space
+   * (use pixelRectToDataNorm to convert from pixel coords).
    *
-   * The rect is in canvas CSS pixel coordinates (not physical pixels).
+   * Pure CPU operation — no GPU readback, guaranteed <16ms for 1M points.
    */
-  selectInRect(
-    rectX: number,
-    rectY: number,
-    rectW: number,
-    rectH: number,
-    viewport: Viewport
+  selectInDataRect(
+    dnLeft: number,
+    dnRight: number,
+    dnBottom: number,
+    dnTop: number,
   ): string[] {
     if (this.pointCount === 0) return [];
-
-    const canvasW = this.canvas.clientWidth;
-    const canvasH = this.canvas.clientHeight;
-
-    // Normalize rect to [0,1] canvas space (Y flipped: canvas Y=0 is top)
-    const rLeft   = Math.min(rectX, rectX + rectW) / canvasW;
-    const rRight  = Math.max(rectX, rectX + rectW) / canvasW;
-    const rTop    = Math.min(rectY, rectY + rectH) / canvasH;
-    const rBottom = Math.max(rectY, rectY + rectH) / canvasH;
-
-    // Convert to viewport-normalized coords (accounting for pan/zoom)
-    const xRange = viewport.xMax - viewport.xMin;
-    const yRange = viewport.yMax - viewport.yMin;
-
-    // viewport → data-normalized: dataNorm = vpMin + rectNorm * vpRange
-    // Y: canvas Y=0 is top (success low response → bottom of canvas)
-    //    In our NDC: gl y=0 is bottom, so canvas top = data top = high y
-    const dataLeft   = viewport.xMin + rLeft   * xRange;
-    const dataRight  = viewport.xMin + rRight  * xRange;
-    const dataTop    = viewport.yMin + (1.0 - rTop)    * yRange;
-    const dataBottom = viewport.yMin + (1.0 - rBottom) * yRange;
-
-    const dnLeft   = dataLeft;
-    const dnRight  = dataRight;
-    const dnBottom = Math.min(dataTop, dataBottom);
-    const dnTop    = Math.max(dataTop, dataBottom);
 
     const result: string[] = [];
     const data = this.cpuData;
@@ -320,6 +308,88 @@ export class XViewRenderer {
     return result;
   }
 
+  /**
+   * Convert a canvas-pixel selection rect to data-normalized [0,1] rect.
+   * The resulting bounds are in the same space as cpuData values (log-Y for Y axis).
+   * Use the returned bounds directly with selectInDataRect.
+   */
+  pixelRectToDataNorm(
+    rectX: number,
+    rectY: number,
+    rectW: number,
+    rectH: number,
+    viewport: Viewport,
+  ): { left: number; right: number; bottom: number; top: number } {
+    const canvasW = this.canvas.clientWidth;
+    const canvasH = this.canvas.clientHeight;
+    const xRange = viewport.xMax - viewport.xMin;
+    const yRange = viewport.yMax - viewport.yMin;
+
+    // Normalize pixel rect to [0,1] canvas space
+    const rLeft   = Math.min(rectX, rectX + rectW) / canvasW;
+    const rRight  = Math.max(rectX, rectX + rectW) / canvasW;
+    const rTop    = Math.min(rectY, rectY + rectH) / canvasH;
+    const rBottom = Math.max(rectY, rectY + rectH) / canvasH;
+
+    // Convert canvas [0,1] → viewport data-normalized [0,1]
+    // Y is flipped: canvas top (rTop=0) → data top (high y in viewport)
+    const dataLeft   = viewport.xMin + rLeft   * xRange;
+    const dataRight  = viewport.xMin + rRight  * xRange;
+    const dataTop    = viewport.yMin + (1.0 - rTop)    * yRange;
+    const dataBottom = viewport.yMin + (1.0 - rBottom) * yRange;
+
+    return {
+      left:   dataLeft,
+      right:  dataRight,
+      bottom: Math.min(dataTop, dataBottom),
+      top:    Math.max(dataTop, dataBottom),
+    };
+  }
+
+  /**
+   * Convert a data-normalized [0,1] rect back to canvas-pixel rect for SVG rendering.
+   * Inverse of pixelRectToDataNorm.
+   */
+  dataNormRectToPixel(
+    left: number,
+    right: number,
+    bottom: number,
+    top: number,
+    viewport: Viewport,
+  ): { x: number; y: number; width: number; height: number } {
+    const canvasW = this.canvas.clientWidth;
+    const canvasH = this.canvas.clientHeight;
+    const xRange = viewport.xMax - viewport.xMin;
+    const yRange = viewport.yMax - viewport.yMin;
+
+    const rLeft   = (left  - viewport.xMin) / xRange;
+    const rRight  = (right - viewport.xMin) / xRange;
+    const rTop    = 1.0 - (top    - viewport.yMin) / yRange; // Y flip
+    const rBottom = 1.0 - (bottom - viewport.yMin) / yRange;
+
+    return {
+      x:      rLeft   * canvasW,
+      y:      rTop    * canvasH,
+      width:  (rRight - rLeft)   * canvasW,
+      height: (rBottom - rTop)   * canvasH,
+    };
+  }
+
+  /**
+   * Legacy pixel-based selection for backwards compatibility.
+   * Delegates to pixelRectToDataNorm + selectInDataRect.
+   */
+  selectInRect(
+    rectX: number,
+    rectY: number,
+    rectW: number,
+    rectH: number,
+    viewport: Viewport,
+  ): string[] {
+    const dn = this.pixelRectToDataNorm(rectX, rectY, rectW, rectH, viewport);
+    return this.selectInDataRect(dn.left, dn.right, dn.bottom, dn.top);
+  }
+
   /** Current FPS (rolling 30-frame average) */
   getFps(): number {
     if (this.frameTimes.length === 0) return 0;
@@ -327,7 +397,7 @@ export class XViewRenderer {
     return avg > 0 ? Math.round(1000 / avg) : 0;
   }
 
-  /** Data extents for external axis labels */
+  /** Data extents (raw ms / epoch ms) for external axis labels */
   getDataExtents(): { xMin: number; xMax: number; yMin: number; yMax: number } {
     return {
       xMin: this.dataXMin,
@@ -335,6 +405,15 @@ export class XViewRenderer {
       yMin: this.dataYMin,
       yMax: this.dataYMax,
     };
+  }
+
+  /**
+   * Map a raw Y value (ms) to log-normalized [0,1] given the stored extents.
+   * Used by axis tick rendering to align labels with GPU point positions.
+   */
+  yMsToNorm(ms: number): number {
+    if (this.logYMax === this.logYMin) return 0;
+    return (Math.log1p(ms) - this.logYMin) / (this.logYMax - this.logYMin);
   }
 
   dispose(): void {
