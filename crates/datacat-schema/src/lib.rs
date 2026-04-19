@@ -142,6 +142,35 @@ ORDER BY (tenant_id, name, service, timestamp)
 "#;
 
 // ---------------------------------------------------------------------------
+// Log Metric Rules 테이블
+// ---------------------------------------------------------------------------
+
+/// 로그 기반 메트릭 파생 규칙 저장 테이블 DDL.
+///
+/// - filter_type: keyword | severity | service | body_regex
+/// - value_field: 비어있으면 count, 설정되면 해당 attrs 키에서 값 추출
+/// - metric_type: 0=gauge, 1=counter
+/// - group_by: 쉼표 구분 그룹화 키 (e.g. "service,env")
+pub const CREATE_LOG_METRIC_RULES_TABLE: &str = r#"
+CREATE TABLE IF NOT EXISTS datacat.log_metric_rules
+(
+    tenant_id    LowCardinality(String),
+    rule_id      String,
+    metric_name  LowCardinality(String),
+    description  String,
+    filter_type  LowCardinality(String),
+    filter_value String,
+    value_field  String,
+    metric_type  UInt8,
+    group_by     String,
+    enabled      UInt8,
+    created_at   DateTime64(3, 'UTC')
+)
+ENGINE = MergeTree()
+ORDER BY (tenant_id, rule_id)
+"#;
+
+// ---------------------------------------------------------------------------
 // 마이그레이션 헬퍼
 // ---------------------------------------------------------------------------
 
@@ -154,6 +183,7 @@ pub const INIT_DDL: &[&str] = &[
     CREATE_METRICS_TABLE,
     ADD_XVIEW_PROJECTION,
     MATERIALIZE_XVIEW_PROJECTION,
+    CREATE_LOG_METRIC_RULES_TABLE,
 ];
 
 #[cfg(test)]

@@ -17,15 +17,19 @@ import { LogsView } from './components/Logs/LogsView';
 import { ProfilingView } from './components/Profiling/ProfilingView';
 import { InsightsView } from './components/Insights/InsightsView';
 import { LandingPage } from './components/Landing/LandingPage';
+import { MetricsExplorer } from './components/MetricsExplorer/MetricsExplorer';
+import { LogMetricsView } from './components/LogMetrics/LogMetricsView';
 
 // ─── Route definitions ────────────────────────────────────────────────────────
 
-type Route = '/' | '/metrics' | '/logs' | '/profiling' | '/insights' | '/about';
+type Route = '/' | '/metrics' | '/explorer' | '/logs' | '/log-rules' | '/profiling' | '/insights' | '/about';
 
 const NAV_ITEMS: Array<{ label: string; route: Route; phase?: string }> = [
   { label: 'X-View',    route: '/'          },
   { label: 'Dashboard', route: '/metrics'   },
+  { label: 'Explorer',  route: '/explorer'  },
   { label: 'Logs',      route: '/logs'      },
+  { label: 'Log Rules', route: '/log-rules' },
   { label: 'Profiling', route: '/profiling' },
   { label: 'Insights',  route: '/insights'  },
   { label: 'About',     route: '/about'     },
@@ -33,7 +37,7 @@ const NAV_ITEMS: Array<{ label: string; route: Route; phase?: string }> = [
 
 function getRoute(): Route {
   const hash = window.location.hash.replace(/^#/, '') || '/';
-  const valid: Route[] = ['/', '/metrics', '/logs', '/profiling', '/insights', '/about'];
+  const valid: Route[] = ['/', '/metrics', '/explorer', '/logs', '/log-rules', '/profiling', '/insights', '/about'];
   return valid.includes(hash as Route) ? (hash as Route) : '/';
 }
 
@@ -104,7 +108,7 @@ function NavBar({ route, onNavigate, timeRange, onTimeRangeChange }: NavBarProps
       <div style={{ flex: 1 }} />
 
       {/* Shared time range picker (only relevant for metric views) */}
-      {(route === '/metrics') && (
+      {(route === '/metrics' || route === '/explorer') && (
         <div style={navStyles.timeGroup} role="group" aria-label="Time range">
           {TIME_RANGES.map((tr) => {
             const active = timeRange === tr.value;
@@ -160,7 +164,9 @@ export function App() {
       <main style={appStyles.main}>
         {route === '/'          && <Dashboard />}
         {route === '/metrics'   && <MetricsDashboard timeRange={timeRange} />}
+        {route === '/explorer'  && <MetricsExplorer timeRange={timeRange} onTimeRangeChange={setTimeRange} />}
         {route === '/logs'      && <LogsView />}
+        {route === '/log-rules' && <LogMetricsView />}
         {route === '/profiling' && <ProfilingView />}
         {route === '/insights'  && <InsightsView />}
         {route === '/about'     && <LandingPage />}

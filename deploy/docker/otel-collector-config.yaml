@@ -13,6 +13,34 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # 호스트 인프라 메트릭 자동 수집 (CPU, 메모리, 디스크, 네트워크, 프로세스)
+  hostmetrics:
+    collection_interval: 15s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      disk:
+      filesystem:
+        exclude_mount_points:
+          mount_points: [/proc/*, /sys/*, /dev/*, /run/*]
+          match_type: regexp
+      network:
+        exclude:
+          interfaces: [lo]
+          match_type: strict
+      load:
+      processes:
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+
   # Prometheus 메트릭 스크랩 (기존 Prometheus 앱 호환)
   prometheus:
     config:
@@ -62,7 +90,7 @@ service:
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp/datacat]
     metrics:
-      receivers: [otlp, prometheus]
+      receivers: [otlp, prometheus, hostmetrics]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp/datacat]
     logs:

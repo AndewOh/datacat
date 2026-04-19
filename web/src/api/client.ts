@@ -273,6 +273,93 @@ export async function sendChatMessage(req: ChatRequest): Promise<ChatResponse> {
   return resp.json() as Promise<ChatResponse>;
 }
 
+// ─── Query Range (multi-series) API ───────────────────────────────────────────
+
+export interface MetricSeries {
+  labels: Record<string, string>;
+  data: MetricPoint[];
+}
+
+export interface QueryRangeResponse {
+  metric: string;
+  series: MetricSeries[];
+}
+
+export async function fetchQueryRange(params: {
+  query: string;
+  start: number;
+  end: number;
+  step: number;
+  tenantId?: string;
+  groupBy?: string;
+  agg?: string;
+  service?: string;
+}): Promise<QueryRangeResponse> {
+  const qs = new URLSearchParams({
+    query: params.query,
+    start: String(params.start),
+    end:   String(params.end),
+    step:  String(params.step),
+    ...(params.tenantId ? { tenant_id: params.tenantId } : {}),
+    ...(params.groupBy  ? { group_by:  params.groupBy }  : {}),
+    ...(params.agg      ? { agg:       params.agg }      : {}),
+    ...(params.service  ? { service:   params.service }  : {}),
+  });
+
+  const resp = await fetch(`${API_BASE}/api/v1/query_range?${qs}`);
+  if (!resp.ok) throw new Error(`query_range fetch failed: ${resp.status}`);
+  return resp.json() as Promise<QueryRangeResponse>;
+}
+
+// ─── Log Metric Rules API ──────────────────────────────────────────────────────
+
+export interface LogMetricRule {
+  rule_id: string;
+  metric_name: string;
+  description: string;
+  filter_type: string;
+  filter_value: string;
+  value_field: string;
+  metric_type: number;
+  group_by: string;
+  enabled: boolean;
+  created_at: number;
+}
+
+export interface CreateRuleRequest {
+  metric_name: string;
+  description?: string;
+  filter_type: string;
+  filter_value: string;
+  value_field?: string;
+  metric_type: number;
+  group_by?: string;
+}
+
+export async function fetchLogMetricRules(tenantId = 'default'): Promise<LogMetricRule[]> {
+  const qs = new URLSearchParams({ tenant_id: tenantId });
+  const resp = await fetch(`${API_BASE}/api/v1/log-metric-rules?${qs}`);
+  if (!resp.ok) throw new Error(`log-metric-rules fetch failed: ${resp.status}`);
+  return resp.json() as Promise<LogMetricRule[]>;
+}
+
+export async function createLogMetricRule(rule: CreateRuleRequest): Promise<LogMetricRule> {
+  const resp = await fetch(`${API_BASE}/api/v1/log-metric-rules`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(rule),
+  });
+  if (!resp.ok) throw new Error(`create rule failed: ${resp.status}`);
+  return resp.json() as Promise<LogMetricRule>;
+}
+
+export async function deleteLogMetricRule(ruleId: string): Promise<void> {
+  const resp = await fetch(`${API_BASE}/api/v1/log-metric-rules/${encodeURIComponent(ruleId)}`, {
+    method: 'DELETE',
+  });
+  if (!resp.ok) throw new Error(`delete rule failed: ${resp.status}`);
+}
+
 // ─── Logs API ──────────────────────────────────────────────────────────────────
 
 export type LogSeverity = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';

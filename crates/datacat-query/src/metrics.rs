@@ -71,6 +71,8 @@ pub struct QueryRangeParams {
     pub env: Option<String>,
     /// 테넌트 ID (기본 "default")
     pub tenant_id: Option<String>,
+    /// 그룹화 기준 (쉼표 구분, e.g. "service,env" — 현재 service/env만 지원)
+    pub group_by: Option<String>,
 }
 
 /// 단일 시계열 데이터 포인트.
@@ -82,15 +84,22 @@ pub struct MetricPoint {
     pub v: f64,
 }
 
-/// query_range 응답 — Prometheus 응답 포맷과 유사.
+/// 단일 레이블 셋에 대응하는 시계열.
+#[derive(Debug, Serialize)]
+pub struct MetricSeries {
+    /// 이 시계열의 레이블 (group_by 없으면 필터 레이블, 있으면 그룹 레이블)
+    pub labels: HashMap<String, String>,
+    /// 시계열 포인트 목록 (t 오름차순 정렬)
+    pub data: Vec<MetricPoint>,
+}
+
+/// query_range 응답 — 다중 시계열 지원.
 #[derive(Debug, Serialize)]
 pub struct MetricsResponse {
     /// 조회한 메트릭 이름
     pub metric: String,
-    /// 적용된 레이블 필터
-    pub labels: HashMap<String, String>,
-    /// 시계열 포인트 목록 (t 오름차순 정렬)
-    pub data: Vec<MetricPoint>,
+    /// 시계열 목록 (group_by 없으면 단일 항목)
+    pub series: Vec<MetricSeries>,
 }
 
 /// GET /api/v1/metrics 응답 항목.
@@ -114,6 +123,7 @@ pub struct ServiceInfo {
 /// ClickHouse에서 시계열 메트릭을 조회한다.
 ///
 /// SQL 인젝션 방어: 모든 외부 String 입력에 single-quote 이스케이프 적용.
+/// group_by가 설정되면 다중 시계열을 반환하고, 그렇지 않으면 단일 시계열 반환.
 pub async fn query_range(client: &Client, params: &QueryRangeParams) -> Result<MetricsResponse> {
     let tenant_id = params.tenant_id.as_deref().unwrap_or("default");
     let step = params.step.unwrap_or(60).max(1); // 최소 1초
@@ -146,57 +156,147 @@ pub async fn query_range(client: &Client, params: &QueryRangeParams) -> Result<M
     }
 
     let where_clause = conditions.join(" AND ");
-
-    // toStartOfInterval을 사용한 시간 버킷 집계
-    // step이 60초면 toStartOfMinute 동일 효과
-    // timestamp is Int64 unix milliseconds; bucket by step_ms
     let step_ms = (step as i64) * 1000;
-    let sql = format!(
-        r#"
-        SELECT
-            (intDiv(timestamp, {step_ms}) * {step_ms}) AS t,
-            {agg_fn}(value) AS v
-        FROM datacat.metrics
-        WHERE {where_clause}
-        GROUP BY t
-        ORDER BY t
-        "#,
-        step_ms = step_ms,
-        agg_fn = agg_fn,
-        where_clause = where_clause,
-    );
 
-    // ClickHouse Row 타입 (로컬 inline)
-    #[derive(clickhouse::Row, Deserialize)]
-    struct RawPoint {
-        t: i64,
-        v: f64,
-    }
-
-    let raw_points: Vec<RawPoint> = client
-        .query(&sql)
-        .fetch_all()
-        .await
+    // group_by 파싱: "service", "env", "service,env" 지원
+    let group_keys: Vec<&str> = params
+        .group_by
+        .as_deref()
+        .map(|s| s.split(',').map(|k| k.trim()).filter(|k| !k.is_empty()).collect())
         .unwrap_or_default();
 
-    let mut data: Vec<MetricPoint> = raw_points
-        .into_iter()
-        .map(|r| MetricPoint { t: r.t, v: r.v })
-        .collect();
+    let want_service = group_keys.contains(&"service");
+    let want_env = group_keys.contains(&"env");
 
-    // Rate 계산: step 초당 증가율 = value_sum / step
-    if agg == Aggregation::Rate && step > 0 {
-        let step_f = step as f64;
-        for pt in &mut data {
-            pt.v /= step_f;
+    if want_service || want_env {
+        // --- 다중 시계열 (GROUP BY) 경로 ---
+        // series_key를 SQL에서 concat으로 생성: "service=<v>,env=<v>" 형태
+        let series_key_expr = match (want_service, want_env) {
+            (true, true) => "concat('service=', service, ',env=', env)".to_string(),
+            (true, false) => "concat('service=', service)".to_string(),
+            (false, true) => "concat('env=', env)".to_string(),
+            _ => unreachable!(),
+        };
+
+        let group_by_cols = match (want_service, want_env) {
+            (true, true) => "t, service, env",
+            (true, false) => "t, service",
+            (false, true) => "t, env",
+            _ => unreachable!(),
+        };
+
+        let sql = format!(
+            r#"
+            SELECT
+                (intDiv(timestamp, {step_ms}) * {step_ms}) AS t,
+                {agg_fn}(value) AS v,
+                {series_key_expr} AS series_key
+            FROM datacat.metrics
+            WHERE {where_clause}
+            GROUP BY {group_by_cols}
+            ORDER BY {group_by_cols}
+            "#,
+            step_ms = step_ms,
+            agg_fn = agg_fn,
+            series_key_expr = series_key_expr,
+            where_clause = where_clause,
+            group_by_cols = group_by_cols,
+        );
+
+        #[derive(clickhouse::Row, Deserialize)]
+        struct GroupedPoint {
+            t: i64,
+            v: f64,
+            series_key: String,
         }
-    }
 
-    Ok(MetricsResponse {
-        metric: params.query.clone(),
-        labels: label_map,
-        data,
-    })
+        let raw_points: Vec<GroupedPoint> = client
+            .query(&sql)
+            .fetch_all()
+            .await
+            .unwrap_or_default();
+
+        // series_key 기준으로 그룹핑
+        let mut series_map: std::collections::BTreeMap<String, Vec<MetricPoint>> =
+            std::collections::BTreeMap::new();
+
+        for pt in raw_points {
+            let entry = series_map.entry(pt.series_key).or_default();
+            entry.push(MetricPoint { t: pt.t, v: pt.v });
+        }
+
+        // Rate 적용 후 MetricSeries 변환
+        let series: Vec<MetricSeries> = series_map
+            .into_iter()
+            .map(|(key, mut points)| {
+                if agg == Aggregation::Rate && step > 0 {
+                    let step_f = step as f64;
+                    for p in &mut points {
+                        p.v /= step_f;
+                    }
+                }
+                // series_key "service=api,env=prod" → HashMap 파싱
+                let mut labels: HashMap<String, String> = HashMap::new();
+                for kv in key.split(',') {
+                    if let Some((k, v)) = kv.split_once('=') {
+                        labels.insert(k.to_string(), v.to_string());
+                    }
+                }
+                MetricSeries { labels, data: points }
+            })
+            .collect();
+
+        Ok(MetricsResponse {
+            metric: params.query.clone(),
+            series,
+        })
+    } else {
+        // --- 단일 시계열 (하위 호환) 경로 ---
+        let sql = format!(
+            r#"
+            SELECT
+                (intDiv(timestamp, {step_ms}) * {step_ms}) AS t,
+                {agg_fn}(value) AS v
+            FROM datacat.metrics
+            WHERE {where_clause}
+            GROUP BY t
+            ORDER BY t
+            "#,
+            step_ms = step_ms,
+            agg_fn = agg_fn,
+            where_clause = where_clause,
+        );
+
+        #[derive(clickhouse::Row, Deserialize)]
+        struct RawPoint {
+            t: i64,
+            v: f64,
+        }
+
+        let raw_points: Vec<RawPoint> = client
+            .query(&sql)
+            .fetch_all()
+            .await
+            .unwrap_or_default();
+
+        let mut data: Vec<MetricPoint> = raw_points
+            .into_iter()
+            .map(|r| MetricPoint { t: r.t, v: r.v })
+            .collect();
+
+        // Rate 계산: step 초당 증가율 = value_sum / step
+        if agg == Aggregation::Rate && step > 0 {
+            let step_f = step as f64;
+            for pt in &mut data {
+                pt.v /= step_f;
+            }
+        }
+
+        Ok(MetricsResponse {
+            metric: params.query.clone(),
+            series: vec![MetricSeries { labels: label_map, data }],
+        })
+    }
 }
 
 /// 사용 가능한 메트릭 이름 목록을 반환한다.

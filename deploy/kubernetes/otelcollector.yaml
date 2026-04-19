@@ -28,6 +28,26 @@ spec:
           http:
             endpoint: 0.0.0.0:4318
 
+      # 노드 인프라 메트릭 (DaemonSet 모드에서 사용 시 더 효과적)
+      hostmetrics:
+        collection_interval: 15s
+        scrapers:
+          cpu:
+            metrics:
+              system.cpu.utilization:
+                enabled: true
+          memory:
+            metrics:
+              system.memory.utilization:
+                enabled: true
+          disk:
+          filesystem:
+          network:
+            exclude:
+              interfaces: [lo]
+              match_type: strict
+          load:
+
     processors:
       # 배치: 네트워크 효율 향상
       batch:
@@ -98,7 +118,7 @@ spec:
           processors: [memory_limiter, k8sattributes, resource, batch]
           exporters: [otlp/datacat]
         metrics:
-          receivers: [otlp]
+          receivers: [otlp, hostmetrics]
           processors: [memory_limiter, k8sattributes, resource, batch]
           exporters: [otlp/datacat]
         logs:

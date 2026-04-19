@@ -4,6 +4,7 @@
 //! - REST API: axum (0.0.0.0:8080)
 //! - Arrow Flight: 향후 추가 예정 (대용량 데이터 스트리밍)
 
+mod log_metrics;
 mod logs;
 mod metrics;
 mod profiling;
@@ -15,7 +16,7 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::get,
+    routing::{delete, get, post},
 };
 use std::sync::Arc;
 use tracing::info;
@@ -90,6 +91,16 @@ async fn main() -> Result<()> {
         .route(
             "/api/v1/profiles/:profile_id/flamegraph",
             get(profiling::get_flamegraph_handler),
+        )
+        // Log Metric Rules API
+        .route(
+            "/api/v1/log-metric-rules",
+            post(log_metrics::create_log_metric_rule_handler)
+                .get(log_metrics::list_log_metric_rules_handler),
+        )
+        .route(
+            "/api/v1/log-metric-rules/:rule_id",
+            delete(log_metrics::delete_log_metric_rule_handler),
         )
         .with_state(state);
 
