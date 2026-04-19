@@ -5,9 +5,9 @@ CREATE DATABASE IF NOT EXISTS datacat;
 -- ===========================
 CREATE TABLE IF NOT EXISTS datacat.spans (
     tenant_id        LowCardinality(String),
-    trace_id         FixedString(32),
-    span_id          FixedString(16),
-    parent_span_id   FixedString(16),
+    trace_id         String,
+    span_id          String,
+    parent_span_id   String,
     name             LowCardinality(String),
     service          LowCardinality(String),
     env              LowCardinality(String),
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS datacat.spans (
 ) ENGINE = MergeTree()
 PARTITION BY (tenant_id, toYYYYMMDD(start_time))
 ORDER BY (tenant_id, service, start_time, trace_id)
-TTL start_time + INTERVAL 30 DAY DELETE
+TTL toDateTime(start_time) + INTERVAL 30 DAY DELETE
 SETTINGS
     index_granularity = 8192,
     merge_with_ttl_timeout = 3600;
@@ -53,8 +53,8 @@ ALTER TABLE datacat.spans MATERIALIZE PROJECTION proj_xview;
 CREATE TABLE IF NOT EXISTS datacat.logs (
     tenant_id        LowCardinality(String),
     timestamp        DateTime64(9, 'UTC'),
-    trace_id         FixedString(32),
-    span_id          FixedString(16),
+    trace_id         String,
+    span_id          String,
     severity_number  UInt8,
     severity_text    LowCardinality(String),
     service          LowCardinality(String),
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS datacat.logs (
 ) ENGINE = MergeTree()
 PARTITION BY (tenant_id, toYYYYMMDD(timestamp))
 ORDER BY (tenant_id, service, timestamp, trace_id)
-TTL timestamp + INTERVAL 30 DAY DELETE
+TTL toDateTime(timestamp) + INTERVAL 30 DAY DELETE
 SETTINGS index_granularity = 8192;
 
 -- ===========================
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS datacat.metrics (
 ) ENGINE = MergeTree()
 PARTITION BY (tenant_id, toYYYYMMDD(timestamp))
 ORDER BY (tenant_id, name, service, timestamp)
-TTL timestamp + INTERVAL 30 DAY DELETE
+TTL toDateTime(timestamp) + INTERVAL 30 DAY DELETE
 SETTINGS index_granularity = 8192;
 
 -- ===========================
@@ -102,13 +102,13 @@ CREATE TABLE IF NOT EXISTS datacat.profiles (
     timestamp    DateTime64(9, 'UTC'),
     service      LowCardinality(String),
     env          LowCardinality(String),
-    profile_id   FixedString(32),
+    profile_id   String,
     type         LowCardinality(String),  -- cpu, heap, goroutine
     payload      String   -- pprof/jfr base64 (Phase 4에서 실제 파싱)
 ) ENGINE = MergeTree()
 PARTITION BY (tenant_id, toYYYYMMDD(timestamp))
 ORDER BY (tenant_id, service, timestamp)
-TTL timestamp + INTERVAL 7 DAY DELETE;
+TTL toDateTime(timestamp) + INTERVAL 7 DAY DELETE;
 
 -- ===========================
 -- MATERIALIZED VIEW: 서비스별 분당 통계 (대시보드 가속)

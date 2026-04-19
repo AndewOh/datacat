@@ -128,8 +128,8 @@ pub async fn query_range(client: &Client, params: &QueryRangeParams) -> Result<M
     let mut conditions = vec![
         format!("name = '{}'", metric_name),
         format!("tenant_id = '{}'", tenant_escaped),
-        format!("timestamp >= fromUnixTimestamp64Milli({})", params.start),
-        format!("timestamp <  fromUnixTimestamp64Milli({})", params.end),
+        format!("timestamp >= {}", params.start),
+        format!("timestamp <  {}", params.end),
     ];
 
     let mut label_map: HashMap<String, String> = HashMap::new();
@@ -149,19 +149,19 @@ pub async fn query_range(client: &Client, params: &QueryRangeParams) -> Result<M
 
     // toStartOfInterval을 사용한 시간 버킷 집계
     // step이 60초면 toStartOfMinute 동일 효과
+    // timestamp is Int64 unix milliseconds; bucket by step_ms
+    let step_ms = (step as i64) * 1000;
     let sql = format!(
         r#"
         SELECT
-            toUnixTimestamp64Milli(
-                toStartOfInterval(timestamp, INTERVAL {step} SECOND)
-            ) AS t,
+            (intDiv(timestamp, {step_ms}) * {step_ms}) AS t,
             {agg_fn}(value) AS v
         FROM datacat.metrics
         WHERE {where_clause}
         GROUP BY t
         ORDER BY t
         "#,
-        step = step,
+        step_ms = step_ms,
         agg_fn = agg_fn,
         where_clause = where_clause,
     );

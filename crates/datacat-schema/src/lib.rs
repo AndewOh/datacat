@@ -35,15 +35,15 @@ pub const CREATE_SPANS_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS datacat.spans
 (
     tenant_id         LowCardinality(String),
-    trace_id          FixedString(32),
-    span_id           FixedString(16),
-    parent_span_id    FixedString(16),
+    trace_id          String,
+    span_id           String,
+    parent_span_id    String,
     name              LowCardinality(String),
     service           LowCardinality(String),
     env               LowCardinality(String),
     kind              UInt8,
-    start_time        DateTime64(9, 'UTC'),
-    end_time          DateTime64(9, 'UTC'),
+    start_time        Int64,
+    end_time          Int64,
     duration_ns       UInt64,
     status_code       UInt8,
     status_msg        String,
@@ -55,9 +55,8 @@ CREATE TABLE IF NOT EXISTS datacat.spans
     INDEX idx_duration  duration_ns TYPE minmax             GRANULARITY 1
 )
 ENGINE = MergeTree()
-PARTITION BY (tenant_id, toYYYYMMDD(start_time))
+PARTITION BY (tenant_id, toYYYYMM(toDateTime(start_time / 1000000000)))
 ORDER BY (tenant_id, service, start_time, trace_id)
-TTL start_time + INTERVAL 30 DAY
 SETTINGS index_granularity = 8192
 "#;
 
@@ -96,23 +95,23 @@ ALTER TABLE datacat.spans MATERIALIZE PROJECTION xview_proj
 pub const CREATE_LOGS_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS datacat.logs
 (
-    tenant_id    LowCardinality(String),
-    timestamp    DateTime64(9, 'UTC'),
-    trace_id     FixedString(32),
-    span_id      FixedString(16),
-    severity     UInt8,
-    service      LowCardinality(String),
-    env          LowCardinality(String),
-    body         String,
-    attrs_keys   Array(LowCardinality(String)),
-    attrs_values Array(String),
+    tenant_id      LowCardinality(String),
+    timestamp      Int64,
+    trace_id       String,
+    span_id        String,
+    severity_number UInt8,
+    severity_text  LowCardinality(String),
+    service        LowCardinality(String),
+    env            LowCardinality(String),
+    body           String,
+    attrs_keys     Array(LowCardinality(String)),
+    attrs_values   Array(String),
     INDEX idx_trace_id trace_id TYPE bloom_filter(0.001)       GRANULARITY 1,
     INDEX idx_body     body     TYPE tokenbf_v1(32768, 3, 0)   GRANULARITY 1
 )
 ENGINE = MergeTree()
-PARTITION BY (tenant_id, toYYYYMMDD(timestamp))
+PARTITION BY (tenant_id, toYYYYMM(toDateTime(timestamp / 1000000000)))
 ORDER BY (tenant_id, service, timestamp)
-TTL timestamp + INTERVAL 30 DAY
 "#;
 
 // ---------------------------------------------------------------------------
@@ -128,7 +127,7 @@ pub const CREATE_METRICS_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS datacat.metrics
 (
     tenant_id    LowCardinality(String),
-    timestamp    DateTime64(3, 'UTC'),
+    timestamp    Int64,
     name         LowCardinality(String),
     type         UInt8,
     value        Float64,
@@ -138,9 +137,8 @@ CREATE TABLE IF NOT EXISTS datacat.metrics
     attrs_values Array(String)
 )
 ENGINE = MergeTree()
-PARTITION BY (tenant_id, toYYYYMMDD(timestamp))
+PARTITION BY (tenant_id, toYYYYMM(toDateTime(timestamp / 1000)))
 ORDER BY (tenant_id, name, service, timestamp)
-TTL timestamp + INTERVAL 30 DAY
 "#;
 
 // ---------------------------------------------------------------------------

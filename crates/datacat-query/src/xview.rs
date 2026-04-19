@@ -79,10 +79,14 @@ pub async fn query_xview(client: &Client, params: &XViewParams) -> Result<XViewR
     // SQL 인젝션 방어: 모든 string 값에 single-quote 이스케이프 적용
     let tenant_escaped = tenant_id.replace('\'', "\\'");
 
+    // start_time은 Int64 unix nanoseconds
+    let start_ns = params.start * 1_000_000;
+    let end_ns   = params.end   * 1_000_000;
+
     let mut conditions = vec![
         format!("tenant_id = '{}'", tenant_escaped),
-        format!("start_time >= fromUnixTimestamp64Milli({})", params.start),
-        format!("start_time <  fromUnixTimestamp64Milli({})", params.end),
+        format!("start_time >= {}", start_ns),
+        format!("start_time <  {}", end_ns),
     ];
 
     if let Some(svc) = &params.service {
@@ -98,9 +102,9 @@ pub async fn query_xview(client: &Client, params: &XViewParams) -> Result<XViewR
     let scatter_sql = format!(
         r#"
         SELECT
-            toUnixTimestamp64Milli(start_time) AS t,
-            duration_ns                         AS d,
-            if(status_code = 2, 1, 0)           AS s
+            intDiv(start_time, 1000000) AS t,
+            duration_ns                 AS d,
+            if(status_code = 2, 1, 0)   AS s
         FROM datacat.spans
         WHERE {where_clause}
         ORDER BY start_time
@@ -132,14 +136,14 @@ pub async fn query_xview(client: &Client, params: &XViewParams) -> Result<XViewR
         .await
         .unwrap_or_default();
 
-    // 통계 조회
+    // 통계 조회 — quantile()은 Float64를 반환하므로 f64로 수신 후 변환
     #[derive(clickhouse::Row, Deserialize)]
     struct StatsRow {
         total: u64,
         errors: u64,
-        p50_ns: u64,
-        p95_ns: u64,
-        p99_ns: u64,
+        p50_ns: f64,
+        p95_ns: f64,
+        p99_ns: f64,
     }
 
     let stats = client
@@ -150,9 +154,9 @@ pub async fn query_xview(client: &Client, params: &XViewParams) -> Result<XViewR
         .map(|r| XViewStats {
             total: r.total,
             errors: r.errors,
-            p50_ns: r.p50_ns,
-            p95_ns: r.p95_ns,
-            p99_ns: r.p99_ns,
+            p50_ns: r.p50_ns as u64,
+            p95_ns: r.p95_ns as u64,
+            p99_ns: r.p99_ns as u64,
         })
         .unwrap_or(XViewStats { total: 0, errors: 0, p50_ns: 0, p95_ns: 0, p99_ns: 0 });
 

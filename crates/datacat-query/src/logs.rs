@@ -142,10 +142,12 @@ fn build_where_conditions(
     query_text: &Option<String>,
     trace_id: &Option<String>,
 ) -> Vec<String> {
+    let start_ns = start * 1_000_000;
+    let end_ns   = end   * 1_000_000;
     let mut conditions = vec![
         format!("tenant_id = '{}'", escape_str(tenant_id)),
-        format!("timestamp >= fromUnixTimestamp64Milli({})", start),
-        format!("timestamp <  fromUnixTimestamp64Milli({})", end),
+        format!("timestamp >= {}", start_ns),
+        format!("timestamp <  {}", end_ns),
     ];
 
     if let Some(svc) = service {
@@ -231,9 +233,9 @@ pub async fn query_logs(
 
     let logs_sql = format!(
         r#"SELECT
-    toUnixTimestamp64Milli(timestamp) AS ts,
+    intDiv(timestamp, 1000000) AS ts,
     service,
-    severity_text                     AS severity,
+    severity_text              AS severity,
     body,
     trace_id,
     span_id,
@@ -290,9 +292,9 @@ async fn query_live_logs(
 
     let sql = format!(
         r#"SELECT
-    toUnixTimestamp64Milli(timestamp) AS ts,
+    intDiv(timestamp, 1000000) AS ts,
     service,
-    severity_text                     AS severity,
+    severity_text              AS severity,
     body,
     trace_id,
     span_id,
