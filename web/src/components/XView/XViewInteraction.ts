@@ -14,6 +14,8 @@ export interface InteractionCallbacks {
   onSelectionStart: () => void;
   onSelectionChange: (rect: SelectionRect | null) => void;
   onSelectionEnd: (rect: SelectionRect) => void;
+  /** Called on click (< 4px drag) — clears the committed selection entirely */
+  onClearSelection: () => void;
 }
 
 type PointerMode = 'idle' | 'selecting' | 'panning';
@@ -119,11 +121,12 @@ export class XViewInteraction {
   private handleMouseUp(_e: MouseEvent): void {
     if (this.mode === 'selecting' && this.dragStart && this.dragCurrent) {
       const rect = this.computeRect(this.dragStart, this.dragCurrent);
-      // Only emit selection if drag was meaningful (>4px)
       if (rect.width > 4 || rect.height > 4) {
         this.callbacks.onSelectionEnd(rect);
       } else {
+        // Click without meaningful drag → clear committed selection
         this.callbacks.onSelectionChange(null);
+        this.callbacks.onClearSelection();
       }
     }
 

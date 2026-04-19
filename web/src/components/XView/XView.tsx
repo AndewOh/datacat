@@ -327,6 +327,14 @@ export function XView({
         setDragRect(null);
         dataNormSelRef.current = null;
         setSelectedCount(0);
+        prevSelectedIdsRef.current = '';
+      },
+      onClearSelection: () => {
+        dataNormSelRef.current = null;
+        setSelectedCount(0);
+        prevSelectedIdsRef.current = '';
+        onSelectionChangeRef.current?.([]);
+        onPointsSelectedRef.current?.([]);
       },
       onSelectionChange: (rect) => {
         // Show live drag rect via SVG (pixel-perfect, no conversion needed while dragging)
