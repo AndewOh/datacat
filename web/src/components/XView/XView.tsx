@@ -73,8 +73,7 @@ interface DrawFrameOptions {
   dataXMax: number;
   dataYMin: number;  // raw ms (used for log mapping)
   dataYMax: number;
-  renderer: XViewRenderer;
-  /** Committed selection in data-norm [0,1] coords — null = no selection */
+  /** Committed selection in raw data units — null = no selection */
   dataNormSel: { left: number; right: number; bottom: number; top: number } | null;
 }
 
@@ -216,15 +215,27 @@ function drawFrame({
 
   // ─ Committed selection rect (Bug 1 fix — drawn here so it tracks pan/zoom) ──
   if (dataNormSel) {
-    const rLeft   = (dataNormSel.left   - viewport.xMin) / (viewport.xMax - viewport.xMin);
-    const rRight  = (dataNormSel.right  - viewport.xMin) / (viewport.xMax - viewport.xMin);
-    const rTop    = 1.0 - (dataNormSel.top    - viewport.yMin) / vpYRange;
-    const rBottom = 1.0 - (dataNormSel.bottom - viewport.yMin) / vpYRange;
+    // Raw → data-norm
+    const xDataRange = dataXMax - dataXMin;
+    const logYMin2   = Math.log1p(dataYMin);
+    const logYMax2   = Math.log1p(dataYMax);
+    const logYRange2 = logYMax2 - logYMin2;
 
-    const sx  = LEFT + Math.min(rLeft, rRight)   * plotW;
-    const sy  = Math.min(rTop,  rBottom) * plotH;
-    const sw  = Math.abs(rRight  - rLeft)  * plotW;
-    const sh  = Math.abs(rBottom - rTop)   * plotH;
+    const dnLeft   = xDataRange > 0 ? (dataNormSel.left   - dataXMin) / xDataRange : 0;
+    const dnRight  = xDataRange > 0 ? (dataNormSel.right  - dataXMin) / xDataRange : 1;
+    const dnBottom = logYRange2 > 0 ? (Math.log1p(dataNormSel.bottom) - logYMin2) / logYRange2 : 0;
+    const dnTop    = logYRange2 > 0 ? (Math.log1p(dataNormSel.top)    - logYMin2) / logYRange2 : 1;
+
+    // Data-norm → viewport fraction
+    const rLeft   = (dnLeft   - viewport.xMin) / (viewport.xMax - viewport.xMin);
+    const rRight  = (dnRight  - viewport.xMin) / (viewport.xMax - viewport.xMin);
+    const rTopF   = 1.0 - (dnTop    - viewport.yMin) / vpYRange;
+    const rBottomF= 1.0 - (dnBottom - viewport.yMin) / vpYRange;
+
+    const sx  = LEFT + Math.min(rLeft, rRight)     * plotW;
+    const sy  = Math.min(rTopF,  rBottomF) * plotH;
+    const sw  = Math.abs(rRight  - rLeft)   * plotW;
+    const sh  = Math.abs(rBottomF - rTopF)  * plotH;
 
     // Only draw if at least partially inside the plot area
     if (sw > 0 && sh > 0) {
@@ -326,14 +337,14 @@ export function XView({
 
         // Bug 1: Convert final pixel rect to data-norm and store in ref.
         // The RAF loop picks up dataNormSelRef every frame → no stale coords.
-        const dn = renderer.pixelRectToDataNorm(
+        const dn = renderer.pixelRectToRawData(
           rect.x, rect.y, rect.width, rect.height,
           viewportRef.current,
         );
         dataNormSelRef.current = dn;
 
         // Run selection against CPU data
-        const ids = renderer.selectInDataRect(dn.left, dn.right, dn.bottom, dn.top);
+        const ids = renderer.selectInRawDataRect(dn.left, dn.right, dn.bottom, dn.top);
         setSelectedCount(ids.length);
         onSelectionChangeRef.current?.(ids);
 
@@ -372,7 +383,6 @@ export function XView({
           dataXMax: extents.xMax,
           dataYMin: extents.yMin,
           dataYMax: extents.yMax,
-          renderer,
           dataNormSel: dataNormSelRef.current,
         });
       }
@@ -405,7 +415,7 @@ export function XView({
 
     const dn = dataNormSelRef.current;
     if (dn) {
-      const ids    = renderer.selectInDataRect(dn.left, dn.right, dn.bottom, dn.top);
+      const ids    = renderer.selectInRawDataRect(dn.left, dn.right, dn.bottom, dn.top);
       const idsKey = ids.join(',');
       if (idsKey !== prevSelectedIdsRef.current) {
         prevSelectedIdsRef.current = idsKey;

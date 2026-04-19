@@ -346,6 +346,54 @@ export class XViewRenderer {
     };
   }
 
+  pixelRectToRawData(
+    rectX: number, rectY: number, rectW: number, rectH: number,
+    viewport: Viewport,
+  ): { left: number; right: number; bottom: number; top: number } {
+    const canvasW = this.canvas.clientWidth;
+    const canvasH = this.canvas.clientHeight;
+    const xRange = viewport.xMax - viewport.xMin;
+    const yRange = viewport.yMax - viewport.yMin;
+
+    const rLeft   = Math.min(rectX, rectX + rectW) / canvasW;
+    const rRight  = Math.max(rectX, rectX + rectW) / canvasW;
+    const rTop    = Math.min(rectY, rectY + rectH) / canvasH;
+    const rBottom = Math.max(rectY, rectY + rectH) / canvasH;
+
+    // Canvas [0,1] → viewport data-norm [0,1]
+    const dnLeft   = viewport.xMin + rLeft   * xRange;
+    const dnRight  = viewport.xMin + rRight  * xRange;
+    const dnTop    = viewport.yMin + (1.0 - rTop)    * yRange;
+    const dnBottom = viewport.yMin + (1.0 - rBottom) * yRange;
+
+    // Data-norm [0,1] → raw data units
+    const dataXRange = this.dataXMax - this.dataXMin;
+    const logYRange  = this.logYMax  - this.logYMin;
+
+    const rawLeft   = this.dataXMin + dnLeft   * dataXRange;
+    const rawRight  = this.dataXMin + dnRight  * dataXRange;
+    // Y: un-normalize log1p  norm = (log1p(y) - logYMin) / logYRange  →  y = expm1(norm * logYRange + logYMin)
+    const rawTop    = Math.expm1(Math.max(dnTop,    dnBottom) * logYRange + this.logYMin);
+    const rawBottom = Math.expm1(Math.min(dnTop,    dnBottom) * logYRange + this.logYMin);
+
+    return { left: rawLeft, right: rawRight, bottom: rawBottom, top: rawTop };
+  }
+
+  selectInRawDataRect(
+    rawLeft: number, rawRight: number, rawBottom: number, rawTop: number,
+  ): string[] {
+    if (this.pointCount === 0) return [];
+    const dataXRange = this.dataXMax - this.dataXMin;
+    const logYRange  = this.logYMax  - this.logYMin;
+
+    const dnLeft   = (rawLeft   - this.dataXMin) / dataXRange;
+    const dnRight  = (rawRight  - this.dataXMin) / dataXRange;
+    const dnBottom = logYRange > 0 ? (Math.log1p(rawBottom) - this.logYMin) / logYRange : 0;
+    const dnTop    = logYRange > 0 ? (Math.log1p(rawTop)    - this.logYMin) / logYRange : 1;
+
+    return this.selectInDataRect(dnLeft, dnRight, dnBottom, dnTop);
+  }
+
   /**
    * Convert a data-normalized [0,1] rect back to canvas-pixel rect for SVG rendering.
    * Inverse of pixelRectToDataNorm.
