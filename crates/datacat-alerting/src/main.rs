@@ -20,49 +20,26 @@ use tracing::{info, warn};
 use tracing_subscriber::{EnvFilter, fmt};
 
 /// Alerting 서비스 설정.
-#[derive(Debug, serde::Deserialize)]
 pub struct AlertingConfig {
-    /// HTTP 서버 바인드 주소
-    #[serde(default = "default_listen_addr")]
     pub listen_addr: String,
-
-    /// ClickHouse HTTP URL
-    #[serde(default = "default_clickhouse_url")]
     pub clickhouse_url: String,
-
-    /// ClickHouse 데이터베이스 이름
-    #[serde(default = "default_clickhouse_db")]
     pub clickhouse_db: String,
-}
-
-fn default_listen_addr()    -> String { "0.0.0.0:9090".to_string() }
-fn default_clickhouse_url() -> String { "http://localhost:8123".to_string() }
-fn default_clickhouse_db()  -> String { "datacat".to_string() }
-
-impl Default for AlertingConfig {
-    fn default() -> Self {
-        AlertingConfig {
-            listen_addr:    default_listen_addr(),
-            clickhouse_url: default_clickhouse_url(),
-            clickhouse_db:  default_clickhouse_db(),
-        }
-    }
+    pub clickhouse_user: String,
+    pub clickhouse_password: String,
 }
 
 fn load_config() -> AlertingConfig {
-    let builder = config::Config::builder()
-        .add_source(config::File::with_name("config").required(false))
-        .add_source(config::Environment::with_prefix("DATACAT").separator("_"));
-
-    match builder.build() {
-        Ok(cfg) => cfg.try_deserialize().unwrap_or_else(|e| {
-            warn!("설정 역직렬화 실패, 기본값 사용: {}", e);
-            AlertingConfig::default()
-        }),
-        Err(e) => {
-            warn!("설정 로드 실패, 기본값 사용: {}", e);
-            AlertingConfig::default()
-        }
+    AlertingConfig {
+        listen_addr: std::env::var("DATACAT_LISTEN_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:9090".to_string()),
+        clickhouse_url: std::env::var("DATACAT_CLICKHOUSE_URL")
+            .unwrap_or_else(|_| "http://localhost:8123".to_string()),
+        clickhouse_db: std::env::var("DATACAT_CLICKHOUSE_DB")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_user: std::env::var("DATACAT_CLICKHOUSE_USER")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_password: std::env::var("DATACAT_CLICKHOUSE_PASSWORD")
+            .unwrap_or_else(|_| "datacat_dev".to_string()),
     }
 }
 
@@ -86,7 +63,9 @@ async fn main() -> Result<()> {
     // ClickHouse 클라이언트
     let ch_client = clickhouse::Client::default()
         .with_url(&cfg.clickhouse_url)
-        .with_database(&cfg.clickhouse_db);
+        .with_database(&cfg.clickhouse_db)
+        .with_user(&cfg.clickhouse_user)
+        .with_password(&cfg.clickhouse_password);
 
     // In-memory 저장소 (Phase 7에서 영속화)
     let monitors: Arc<RwLock<Vec<monitor::Monitor>>> =

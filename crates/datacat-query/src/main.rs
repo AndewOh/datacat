@@ -26,23 +26,22 @@ pub struct QueryConfig {
     pub listen_addr: String,
     pub clickhouse_url: String,
     pub clickhouse_db: String,
-}
-
-fn default_listen_addr() -> String {
-    std::env::var("DATACAT_LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8001".to_string())
-}
-fn default_clickhouse_url() -> String {
-    std::env::var("DATACAT_CLICKHOUSE_URL").unwrap_or_else(|_| "http://localhost:8123".to_string())
-}
-fn default_clickhouse_db() -> String {
-    std::env::var("DATACAT_CLICKHOUSE_DB").unwrap_or_else(|_| "datacat".to_string())
+    pub clickhouse_user: String,
+    pub clickhouse_password: String,
 }
 
 fn load_config() -> QueryConfig {
     QueryConfig {
-        listen_addr: default_listen_addr(),
-        clickhouse_url: default_clickhouse_url(),
-        clickhouse_db: default_clickhouse_db(),
+        listen_addr: std::env::var("DATACAT_LISTEN_ADDR")
+            .unwrap_or_else(|_| "0.0.0.0:8001".to_string()),
+        clickhouse_url: std::env::var("DATACAT_CLICKHOUSE_URL")
+            .unwrap_or_else(|_| "http://localhost:8123".to_string()),
+        clickhouse_db: std::env::var("DATACAT_CLICKHOUSE_DB")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_user: std::env::var("DATACAT_CLICKHOUSE_USER")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_password: std::env::var("DATACAT_CLICKHOUSE_PASSWORD")
+            .unwrap_or_else(|_| "datacat_dev".to_string()),
     }
 }
 
@@ -70,7 +69,9 @@ async fn main() -> Result<()> {
 
     let ch_client = clickhouse::Client::default()
         .with_url(&cfg.clickhouse_url)
-        .with_database(&cfg.clickhouse_db);
+        .with_database(&cfg.clickhouse_db)
+        .with_user(&cfg.clickhouse_user)
+        .with_password(&cfg.clickhouse_password);
 
     let state = Arc::new(AppState { ch_client });
 

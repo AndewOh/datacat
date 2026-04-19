@@ -16,67 +16,40 @@ mod profiling_writer;
 mod writer;
 
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 
 /// Ingester 설정.
 #[derive(Debug, serde::Deserialize)]
 pub struct IngesterConfig {
-    #[serde(default = "default_kafka_brokers")]
     pub kafka_brokers: String,
-
-    #[serde(default = "default_kafka_group")]
     pub kafka_group: String,
-
-    #[serde(default = "default_clickhouse_url")]
     pub clickhouse_url: String,
-
-    #[serde(default = "default_clickhouse_db")]
     pub clickhouse_db: String,
-
-    /// 배치 flush 최대 대기 시간(ms)
-    #[serde(default = "default_flush_interval_ms")]
+    pub clickhouse_user: String,
+    pub clickhouse_password: String,
     pub flush_interval_ms: u64,
-
-    /// 배치 최대 크기
-    #[serde(default = "default_batch_size")]
     pub batch_size: usize,
 }
 
-fn default_kafka_brokers() -> String { "localhost:9092".to_string() }
-fn default_kafka_group() -> String { "datacat-ingester".to_string() }
-fn default_clickhouse_url() -> String { "http://localhost:8123".to_string() }
-fn default_clickhouse_db() -> String { "datacat".to_string() }
-fn default_flush_interval_ms() -> u64 { 1000 }
-fn default_batch_size() -> usize { 10_000 }
-
-impl Default for IngesterConfig {
-    fn default() -> Self {
-        IngesterConfig {
-            kafka_brokers: default_kafka_brokers(),
-            kafka_group: default_kafka_group(),
-            clickhouse_url: default_clickhouse_url(),
-            clickhouse_db: default_clickhouse_db(),
-            flush_interval_ms: default_flush_interval_ms(),
-            batch_size: default_batch_size(),
-        }
-    }
-}
-
 fn load_config() -> IngesterConfig {
-    let builder = config::Config::builder()
-        .add_source(config::File::with_name("config").required(false))
-        .add_source(config::Environment::with_prefix("DATACAT").separator("_"));
-
-    match builder.build() {
-        Ok(cfg) => cfg.try_deserialize().unwrap_or_else(|e| {
-            warn!("설정 역직렬화 실패, 기본값 사용: {}", e);
-            IngesterConfig::default()
-        }),
-        Err(e) => {
-            warn!("설정 로드 실패, 기본값 사용: {}", e);
-            IngesterConfig::default()
-        }
+    IngesterConfig {
+        kafka_brokers: std::env::var("DATACAT_KAFKA_BROKERS")
+            .unwrap_or_else(|_| "localhost:9092".to_string()),
+        kafka_group: std::env::var("DATACAT_KAFKA_GROUP")
+            .unwrap_or_else(|_| "datacat-ingester".to_string()),
+        clickhouse_url: std::env::var("DATACAT_CLICKHOUSE_URL")
+            .unwrap_or_else(|_| "http://localhost:8123".to_string()),
+        clickhouse_db: std::env::var("DATACAT_CLICKHOUSE_DB")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_user: std::env::var("DATACAT_CLICKHOUSE_USER")
+            .unwrap_or_else(|_| "datacat".to_string()),
+        clickhouse_password: std::env::var("DATACAT_CLICKHOUSE_PASSWORD")
+            .unwrap_or_else(|_| "datacat_dev".to_string()),
+        flush_interval_ms: std::env::var("DATACAT_FLUSH_INTERVAL_MS")
+            .ok().and_then(|v| v.parse().ok()).unwrap_or(1000),
+        batch_size: std::env::var("DATACAT_BATCH_SIZE")
+            .ok().and_then(|v| v.parse().ok()).unwrap_or(10_000),
     }
 }
 
@@ -100,7 +73,9 @@ async fn main() -> Result<()> {
     // ClickHouse 클라이언트 초기화
     let ch_client = clickhouse::Client::default()
         .with_url(&cfg.clickhouse_url)
-        .with_database(&cfg.clickhouse_db);
+        .with_database(&cfg.clickhouse_db)
+        .with_user(&cfg.clickhouse_user)
+        .with_password(&cfg.clickhouse_password);
 
     // 스키마 초기화 (DDL 실행)
     writer::init_schema(&ch_client).await?;
