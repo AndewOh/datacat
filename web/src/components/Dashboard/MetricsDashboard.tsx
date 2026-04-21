@@ -43,7 +43,7 @@ function MetricPanel({
   onRemove,
 }: MetricPanelProps) {
   const color = PANEL_COLORS[colorIdx % PANEL_COLORS.length];
-  const { data, loading, usingMock } = useMetrics({ query: panel.query, timeRange });
+  const { series, loading, usingMock } = useMetrics({ query: panel.query, timeRange });
   const selectId = useId();
 
   return (
@@ -90,7 +90,7 @@ function MetricPanel({
             <span style={panelStyles.emptyText}>메트릭을 선택하세요</span>
           </div>
         ) : (
-          <LineChart data={data} color={color} loading={loading} title={panel.query} />
+          <LineChart series={series.length ? series : undefined} data={series[0]?.data ?? []} color={color} loading={loading} title={panel.query} />
         )}
       </div>
     </div>

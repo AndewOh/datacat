@@ -47,6 +47,8 @@ pub struct ApiState {
     pub insights_service_url: String,
     /// datacat-admin 서비스 URL (기본: http://localhost:9092)
     pub admin_service_url: String,
+    /// datacat-alerting 서비스 URL (기본: http://localhost:9090)
+    pub alerting_service_url: String,
     /// 재사용 가능한 HTTP 클라이언트 (연결 풀 공유)
     pub http_client: reqwest::Client,
     /// 인증 미들웨어 설정 (DATACAT_AUTH_ENABLED=true 시 활성화)
@@ -115,6 +117,8 @@ pub struct XViewQuery {
     pub env: Option<String>,
     /// 테넌트 ID
     pub tenant_id: Option<String>,
+    /// 최대 포인트 수 (다운샘플링)
+    pub limit: Option<u32>,
 }
 
 /// GET /api/v1/xview — X-View 히트맵 데이터 조회
@@ -147,6 +151,9 @@ async fn xview_handler(
     }
     if let Some(ref tenant) = params.tenant_id {
         query_pairs.push(("tenant_id", tenant.clone()));
+    }
+    if let Some(limit) = params.limit {
+        query_pairs.push(("limit", limit.to_string()));
     }
 
     let upstream_url = format!("{}/api/v1/xview", state.query_service_url);
@@ -609,6 +616,168 @@ async fn insights_chat_handler(
 // Admin 프록시 핸들러 (Phase 7 — Multi-tenancy)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Log Metric Rules 핸들러 (Phase 5)
+// ---------------------------------------------------------------------------
+
+/// GET /api/v1/log-metric-rules — 로그 메트릭 규칙 목록 (query service 프록시)
+async fn list_log_metric_rules_handler(
+    State(state): State<Arc<ApiState>>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    proxy_to_query(&state, "/api/v1/log-metric-rules", &params).await
+}
+
+/// POST /api/v1/log-metric-rules — 로그 메트릭 규칙 생성 (query service 프록시)
+async fn create_log_metric_rule_handler(
+    State(state): State<Arc<ApiState>>,
+    body: bytes::Bytes,
+) -> Response {
+    let upstream_url = format!("{}/api/v1/log-metric-rules", state.query_service_url);
+    match state
+        .http_client
+        .post(&upstream_url)
+        .header("content-type", "application/json")
+        .body(body)
+        .send()
+        .await
+    {
+        Ok(resp) => {
+            let status = StatusCode::from_u16(resp.status().as_u16())
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            match resp.json::<serde_json::Value>().await {
+                Ok(b) => (status, Json(b)).into_response(),
+                Err(e) => {
+                    error!(error = %e, "log-metric-rules POST 응답 파싱 실패");
+                    (
+                        StatusCode::BAD_GATEWAY,
+                        Json(serde_json::json!({"error": "upstream response parse failed"})),
+                    )
+                        .into_response()
+                }
+            }
+        }
+        Err(e) => {
+            error!(error = %e, url = %upstream_url, "log-metric-rules POST 프록시 실패");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"error": "query service unavailable"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// DELETE /api/v1/log-metric-rules/:rule_id — 로그 메트릭 규칙 삭제 (query service 프록시)
+async fn delete_log_metric_rule_handler(
+    State(state): State<Arc<ApiState>>,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let upstream_url = format!(
+        "{}/api/v1/log-metric-rules/{}",
+        state.query_service_url, rule_id
+    );
+    match state.http_client.delete(&upstream_url).send().await {
+        Ok(resp) => {
+            let status = StatusCode::from_u16(resp.status().as_u16())
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            if status == StatusCode::NO_CONTENT {
+                return status.into_response();
+            }
+            let bytes = resp.bytes().await.unwrap_or_default();
+            if bytes.is_empty() {
+                return status.into_response();
+            }
+            match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(b) => (status, Json(b)).into_response(),
+                Err(_) => status.into_response(),
+            }
+        }
+        Err(e) => {
+            error!(error = %e, url = %upstream_url, "log-metric-rules DELETE 프록시 실패");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"error": "query service unavailable"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Alerting 프록시 핸들러 (Phase 8 — Alerting)
+// ---------------------------------------------------------------------------
+
+/// ANY /api/v1/monitors[/*] 및 /api/v1/incidents[/*] —
+/// datacat-alerting 서비스로 모든 요청을 프록시한다.
+async fn alerting_proxy_handler(
+    State(state): State<Arc<ApiState>>,
+    req: Request<Body>,
+) -> Response {
+    let path_and_query = req
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+
+    let upstream_url = format!("{}{}", state.alerting_service_url, path_and_query);
+
+    let method = req.method().clone();
+    let headers = req.headers().clone();
+    let body_bytes = match axum::body::to_bytes(req.into_body(), usize::MAX).await {
+        Ok(b) => b,
+        Err(e) => {
+            error!(error = %e, "alerting 프록시 요청 본문 읽기 실패");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "internal server error"})),
+            )
+                .into_response();
+        }
+    };
+
+    let mut upstream_req = state
+        .http_client
+        .request(
+            reqwest::Method::from_bytes(method.as_str().as_bytes())
+                .unwrap_or(reqwest::Method::GET),
+            &upstream_url,
+        )
+        .body(body_bytes);
+
+    if let Some(ct) = headers.get("content-type") {
+        if let Ok(ct_str) = ct.to_str() {
+            upstream_req = upstream_req.header("content-type", ct_str);
+        }
+    }
+
+    match upstream_req.send().await {
+        Ok(resp) => {
+            let status = StatusCode::from_u16(resp.status().as_u16())
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            match resp.json::<serde_json::Value>().await {
+                Ok(body) => (status, Json(body)).into_response(),
+                Err(e) => {
+                    error!(error = %e, "alerting 프록시 응답 파싱 실패");
+                    (
+                        StatusCode::BAD_GATEWAY,
+                        Json(serde_json::json!({"error": "upstream response parse failed"})),
+                    )
+                        .into_response()
+                }
+            }
+        }
+        Err(e) => {
+            error!(error = %e, url = %upstream_url, "alerting 프록시 요청 실패");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"error": "alerting service unavailable"})),
+            )
+                .into_response()
+        }
+    }
+}
+
 /// POST /api/v1/admin/* — datacat-admin 서비스로 모든 요청을 프록시한다.
 ///
 /// SECURITY NOTE: 이 경로는 네트워크 레벨 보호(프라이빗 네트워크/VPN)가
@@ -700,6 +869,13 @@ pub fn build_router(state: Arc<ApiState>) -> Router {
     let admin_routes = Router::new()
         .route("/api/v1/admin/*path", any(admin_proxy_handler));
 
+    // Alerting 프록시 라우트 (Phase 8)
+    let alerting_routes = Router::new()
+        .route("/api/v1/monitors", any(alerting_proxy_handler))
+        .route("/api/v1/monitors/*path", any(alerting_proxy_handler))
+        .route("/api/v1/incidents", any(alerting_proxy_handler))
+        .route("/api/v1/incidents/*path", any(alerting_proxy_handler));
+
     // 인증이 필요한 API 라우트
     let api_routes = Router::new()
         // 헬스체크 (인증 불필요)
@@ -725,7 +901,16 @@ pub fn build_router(state: Arc<ApiState>) -> Router {
         // Insights API (Phase 6 — AI Auto-Ops)
         .route("/api/v1/insights/analyze", post(insights_analyze_handler))
         .route("/api/v1/insights/patterns", get(insights_patterns_handler))
-        .route("/api/v1/insights/chat", post(insights_chat_handler));
+        .route("/api/v1/insights/chat", post(insights_chat_handler))
+        // Log Metric Rules API (Phase 5)
+        .route(
+            "/api/v1/log-metric-rules",
+            get(list_log_metric_rules_handler).post(create_log_metric_rule_handler),
+        )
+        .route(
+            "/api/v1/log-metric-rules/:rule_id",
+            axum::routing::delete(delete_log_metric_rule_handler),
+        );
 
     // DATACAT_AUTH_ENABLED=true 시 API 키 인증 미들웨어를 활성화한다.
     // 개발 모드에서는 미들웨어를 붙이지 않아 오버헤드가 없다.
@@ -741,6 +926,7 @@ pub fn build_router(state: Arc<ApiState>) -> Router {
     Router::new()
         .merge(api_routes)
         .merge(admin_routes)
+        .merge(alerting_routes)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state)

@@ -21,6 +21,7 @@ pub struct ApiConfig {
     pub query_service_url: String,
     pub insights_service_url: String,
     pub admin_service_url: String,
+    pub alerting_service_url: String,
 }
 
 fn load_config() -> ApiConfig {
@@ -33,6 +34,8 @@ fn load_config() -> ApiConfig {
             .unwrap_or_else(|_| "http://localhost:9091".to_string()),
         admin_service_url: std::env::var("DATACAT_ADMIN_URL")
             .unwrap_or_else(|_| "http://localhost:9093".to_string()),
+        alerting_service_url: std::env::var("DATACAT_ALERTING_SERVICE_URL")
+            .unwrap_or_else(|_| "http://localhost:9090".to_string()),
     }
 }
 
@@ -65,6 +68,7 @@ async fn main() -> Result<()> {
         query_service_url: cfg.query_service_url.clone(),
         insights_service_url: cfg.insights_service_url.clone(),
         admin_service_url: cfg.admin_service_url.clone(),
+        alerting_service_url: cfg.alerting_service_url.clone(),
         http_client,
         auth_config,
     });

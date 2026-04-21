@@ -77,35 +77,9 @@ export interface MetricPoint {
   v: number; // value
 }
 
-export interface MetricsResponse {
-  metric: string;
-  labels: Record<string, string>;
-  data: MetricPoint[];
-}
-
 export interface MetricInfo {
   name: string;
   service: string;
-}
-
-export async function fetchMetrics(params: {
-  query: string;
-  start: number;
-  end: number;
-  step: number;
-  tenantId?: string;
-}): Promise<MetricsResponse> {
-  const qs = new URLSearchParams({
-    query: params.query,
-    start: String(params.start),
-    end:   String(params.end),
-    step:  String(params.step),
-    ...(params.tenantId ? { tenant_id: params.tenantId } : {}),
-  });
-
-  const resp = await fetch(`${API_BASE}/api/v1/query_range?${qs}`);
-  if (!resp.ok) throw new Error(`metrics fetch failed: ${resp.status}`);
-  return resp.json() as Promise<MetricsResponse>;
 }
 
 export async function fetchMetricNames(): Promise<MetricInfo[]> {

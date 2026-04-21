@@ -142,6 +142,34 @@ ORDER BY (tenant_id, name, service, timestamp)
 "#;
 
 // ---------------------------------------------------------------------------
+// Profiles 테이블
+// ---------------------------------------------------------------------------
+
+/// 연속 프로파일링 데이터 저장 테이블 DDL.
+///
+/// - profile_id: FixedString(32) — 32자 hex UUID
+/// - type: LowCardinality(String) — cpu, heap, goroutine 등 프로파일 종류
+/// - payload: String — pprof/Speedscope 원시 바이트 (base64 or raw)
+/// - PARTITION BY tenant_id + 월별: 테넌트 격리 및 TTL 관리 용이
+/// - TTL 30일: 프로파일 데이터는 단기 분석 용도
+pub const CREATE_PROFILES_TABLE: &str = r#"
+CREATE TABLE IF NOT EXISTS datacat.profiles
+(
+    tenant_id    LowCardinality(String),
+    timestamp    DateTime64(9, 'UTC'),
+    service      LowCardinality(String),
+    env          LowCardinality(String),
+    profile_id   FixedString(32),
+    type         LowCardinality(String),
+    payload      String
+)
+ENGINE = MergeTree()
+PARTITION BY (tenant_id, toYYYYMM(toDateTime(timestamp)))
+ORDER BY (tenant_id, service, timestamp)
+TTL toDateTime(timestamp) + INTERVAL 30 DAY
+"#;
+
+// ---------------------------------------------------------------------------
 // Log Metric Rules 테이블
 // ---------------------------------------------------------------------------
 
@@ -183,6 +211,7 @@ pub const INIT_DDL: &[&str] = &[
     CREATE_METRICS_TABLE,
     ADD_XVIEW_PROJECTION,
     MATERIALIZE_XVIEW_PROJECTION,
+    CREATE_PROFILES_TABLE,
     CREATE_LOG_METRIC_RULES_TABLE,
 ];
 

@@ -1,14 +1,14 @@
 /**
  * useMetrics.ts — 메트릭 데이터 페치 훅
  *
- * - fetchMetrics 호출 → loading/error/data
+ * - fetchQueryRange 호출 → loading/error/series (multi-series)
  * - API 실패 시 mock 데이터 폴백 (sin 파동 + 노이즈)
  * - 30초마다 자동 갱신
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchMetrics, fetchMetricNames } from '../api/client';
-import type { MetricPoint, MetricsResponse, MetricInfo } from '../api/client';
+import { fetchQueryRange, fetchMetricNames } from '../api/client';
+import type { MetricPoint, MetricSeries, MetricInfo } from '../api/client';
 
 // ─── Time range helpers ───────────────────────────────────────────────────────
 
@@ -30,16 +30,16 @@ function parseTimeRange(range: string): { start: number; end: number; step: numb
 // ─── Mock data generator ──────────────────────────────────────────────────────
 
 /**
- * Generates a deterministic mock MetricsResponse using a sin wave + gaussian noise.
+ * Generates a deterministic mock MetricSeries array using a sin wave + gaussian noise.
  * Different metrics get different amplitudes, periods, and offsets so each panel
  * looks visually distinct.
  */
-function generateMock(
+function generateMockSeries(
   query: string,
   start: number,
   end: number,
   step: number,
-): MetricsResponse {
+): MetricSeries[] {
   // Use query hash to produce per-metric variation
   const seed = query.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   const amplitude  = 50 + (seed % 80);
@@ -56,11 +56,7 @@ function generateMock(
     data.push({ t, v: Math.round(v * 100) / 100 });
   }
 
-  return {
-    metric: query,
-    labels: { service: 'mock', env: 'dev' },
-    data,
-  };
+  return [{ labels: { service: 'mock', env: 'dev' }, data }];
 }
 
 // ─── useMetrics ───────────────────────────────────────────────────────────────
@@ -72,7 +68,7 @@ interface UseMetricsParams {
 }
 
 interface UseMetricsResult {
-  data: MetricPoint[];
+  series: MetricSeries[];
   metric: string;
   loading: boolean;
   error: string | null;
@@ -80,9 +76,10 @@ interface UseMetricsResult {
 }
 
 export function useMetrics({ query, timeRange, tenantId }: UseMetricsParams): UseMetricsResult {
-  const [result, setResult] = useState<MetricsResponse | null>(null);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [series, setSeries]       = useState<MetricSeries[]>([]);
+  const [metric, setMetric]       = useState<string>(query);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
   const [usingMock, setUsingMock] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -93,14 +90,15 @@ export function useMetrics({ query, timeRange, tenantId }: UseMetricsParams): Us
     const { start, end, step } = parseTimeRange(timeRange);
 
     try {
-      const res = await fetchMetrics({ query, start, end, step, tenantId });
-      setResult(res);
+      const resp = await fetchQueryRange({ query, start, end, step, tenantId });
+      setSeries(resp.series.map((s) => ({ labels: s.labels, data: s.data })));
+      setMetric(resp.metric);
       setUsingMock(false);
       setError(null);
     } catch {
       // Fallback to mock
-      const mock = generateMock(query, start, end, step);
-      setResult(mock);
+      setSeries(generateMockSeries(query, start, end, step));
+      setMetric(query);
       setUsingMock(true);
       setError(null);
     } finally {
@@ -121,13 +119,7 @@ export function useMetrics({ query, timeRange, tenantId }: UseMetricsParams): Us
     };
   }, [load]);
 
-  return {
-    data:      result?.data      ?? [],
-    metric:    result?.metric    ?? query,
-    loading,
-    error,
-    usingMock,
-  };
+  return { series, metric, loading, error, usingMock };
 }
 
 // ─── useMetricNames ───────────────────────────────────────────────────────────
