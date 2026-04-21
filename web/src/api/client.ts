@@ -25,6 +25,7 @@ export interface XViewPointWire {
   t: number;    // unix timestamp ms
   d: number;    // duration_ns
   s: 0 | 1;    // status: 0=ok, 1=error
+  tr?: string;  // trace_id (32자 hex) — 있으면 Transactions 테이블에 그대로 표시
 }
 
 export interface XViewStats {

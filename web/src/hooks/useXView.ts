@@ -60,13 +60,16 @@ function makeMockStats(points: XViewPoint[]): XViewStats {
 
 // ─── Wire → internal shape conversion ─────────────────────────────────────────
 
-function wireToXViewPoint(w: { t: number; d: number; s: 0 | 1 }, idx: number): XViewPoint {
+function wireToXViewPoint(w: { t: number; d: number; s: 0 | 1; tr?: string }, idx: number): XViewPoint {
+  const traceId = w.tr && w.tr.length > 0
+    ? w.tr
+    : `trace_${Math.floor(idx / 4).toString(16).padStart(16, '0')}`;
   return {
     x:       w.t,
     y:       w.d / 1_000_000,   // ns → ms
     status:  w.s,
     spanId:  `span_${idx.toString(16).padStart(8, '0')}`,
-    traceId: `trace_${Math.floor(idx / 4).toString(16).padStart(16, '0')}`,
+    traceId,
   };
 }
 

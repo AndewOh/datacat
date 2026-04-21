@@ -102,9 +102,9 @@ export function TransactionTable({ selectedPoints }: TransactionTableProps) {
 
       {overflow > 0 && (
         <div style={styles.overflow} aria-live="polite">
-          {MAX_ROWS}개 표시 중 — 나머지{' '}
+          상위 {MAX_ROWS}개 표시 · 선택된 {selectedPoints.length.toLocaleString()}개 중 나머지{' '}
           <strong style={{ color: '#C9D1D9' }}>{overflow.toLocaleString()}</strong>개는
-          trace를 열어서 확인하세요
+          좀 더 좁은 영역으로 다시 드래그해 주세요
         </div>
       )}
     </div>

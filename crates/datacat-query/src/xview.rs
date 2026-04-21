@@ -46,7 +46,7 @@ pub struct XViewResponse {
     pub stats: XViewStats,
 }
 
-/// 산점도의 단일 포인트 — 프론트엔드 XViewPointWire {t, d, s}와 1:1 대응.
+/// 산점도의 단일 포인트 — 프론트엔드 XViewPointWire {t, d, s, tr}와 1:1 대응.
 #[derive(Debug, Serialize, clickhouse::Row, Deserialize)]
 pub struct XViewPoint {
     /// 요청 시작 시각 (Unix ms)
@@ -55,6 +55,8 @@ pub struct XViewPoint {
     pub d: u64,
     /// 상태: 0=성공, 1=에러
     pub s: u8,
+    /// trace_id (32자 hex)
+    pub tr: String,
 }
 
 /// 전체 집계 통계.
@@ -104,7 +106,8 @@ pub async fn query_xview(client: &Client, params: &XViewParams) -> Result<XViewR
         SELECT
             intDiv(start_time, 1000000) AS t,
             duration_ns                 AS d,
-            if(status_code = 2, 1, 0)   AS s
+            if(status_code = 2, 1, 0)   AS s,
+            trace_id                    AS tr
         FROM datacat.spans
         WHERE {where_clause}
         ORDER BY start_time
