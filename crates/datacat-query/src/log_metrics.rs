@@ -230,8 +230,8 @@ SELECT
     1.0 AS value,
     service,
     env,
-    [] AS attrs_keys,
-    [] AS attrs_values
+    CAST([] AS Array(LowCardinality(String))) AS attrs_keys,
+    CAST([] AS Array(String)) AS attrs_values
 FROM datacat.logs
 WHERE tenant_id = '{tenant}'
   AND {filter_expr}"#,

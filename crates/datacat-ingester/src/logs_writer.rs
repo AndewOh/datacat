@@ -43,8 +43,6 @@ pub struct LogRow {
     pub body: String,
     pub attrs_keys: Vec<String>,
     pub attrs_values: Vec<String>,
-    pub resource_keys: Vec<String>,
-    pub resource_values: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -109,21 +107,16 @@ pub fn decode_logs(payload: &[u8], default_tenant: &str) -> Vec<LogRow> {
         let mut service = String::new();
         let mut env = String::new();
         let mut tenant_id_override: Option<String> = None;
-        let mut resource_keys = Vec::new();
-        let mut resource_values = Vec::new();
 
         if let Some(resource) = &resource_log.resource {
             for attr in &resource.attributes {
                 let val = extract_any_value(&attr.value);
-
                 match attr.key.as_str() {
-                    "service.name" => service = val.clone(),
-                    "deployment.environment" => env = val.clone(),
-                    "datacat.tenant" => tenant_id_override = Some(val.clone()),
+                    "service.name" => service = val,
+                    "deployment.environment" => env = val,
+                    "datacat.tenant" => tenant_id_override = Some(val),
                     _ => {}
                 }
-                resource_keys.push(attr.key.clone());
-                resource_values.push(val);
             }
         }
 
@@ -179,8 +172,6 @@ pub fn decode_logs(payload: &[u8], default_tenant: &str) -> Vec<LogRow> {
                     body,
                     attrs_keys,
                     attrs_values,
-                    resource_keys: resource_keys.clone(),
-                    resource_values: resource_values.clone(),
                 });
             }
         }
