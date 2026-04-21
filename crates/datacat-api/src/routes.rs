@@ -4,11 +4,22 @@
 //! 인증/인가 미들웨어, 레이트 리미팅은 이 레이어에서 처리한다.
 //!
 //! 현재 라우트:
+//! - GET /                                    — /#/about 리다이렉트 (HTML meta-refresh)
+//! - GET /install.sh                          — 설치 스크립트 (인증 불필요)
+//! - GET /install.ps1                         — Windows 설치 스크립트 (미구현, 404)
 //! - GET /health                              — 헬스체크
 //! - GET /api/v1/xview                        — X-View 히트맵 데이터
 //! - GET /api/v1/traces/:trace_id             — 특정 trace 조회 (TODO)
 //! - GET /api/v1/services                     — 서비스 목록 조회 (TODO)
 //! - GET /api/v1/services/:service/operations — 오퍼레이션 목록 (TODO)
+
+/// deploy/scripts/install.sh 파일을 빌드 시 정적으로 포함한다.
+/// CARGO_MANIFEST_DIR 기준 ../../deploy/scripts/install.sh 경로를 참조하며
+/// 요청당 IO가 전혀 없이 메모리에서 서빙된다.
+static INSTALL_SH: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../deploy/scripts/install.sh"
+));
 
 use axum::{
     Json, Router,
@@ -17,9 +28,9 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         Path, Query, Request, State,
     },
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header},
     middleware,
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
     routing::{any, get, post},
 };
 use serde::{Deserialize, Serialize};
@@ -102,6 +113,28 @@ async fn health_handler() -> impl IntoResponse {
         status: "ok",
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+/// GET / — /#/about 로 HTML meta-refresh 리다이렉트
+async fn root_handler() -> impl IntoResponse {
+    Html("<html><meta http-equiv=\"refresh\" content=\"0; url=/#/about\"></html>")
+}
+
+/// GET /install.sh — 설치 스크립트 서빙 (인증 불필요)
+///
+/// 스크립트는 빌드 시 정적으로 포함되므로 요청당 IO가 없다.
+/// `curl -sSL http://<host>:8000/install.sh | bash` 패턴으로 사용한다.
+async fn install_sh_handler() -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, HeaderValue::from_static("text/x-shellscript"))],
+        INSTALL_SH,
+    )
+}
+
+/// GET /install.ps1 — Windows 설치 스크립트 (미구현)
+async fn install_ps1_handler() -> impl IntoResponse {
+    StatusCode::NOT_FOUND
 }
 
 /// GET /api/v1/xview 쿼리 파라미터.
@@ -923,7 +956,14 @@ pub fn build_router(state: Arc<ApiState>) -> Router {
         api_routes
     };
 
+    // 인증 없이 공개 접근이 필요한 정적 라우트 — auth 레이어 밖에 위치한다.
+    let public_routes = Router::new()
+        .route("/", get(root_handler))
+        .route("/install.sh", get(install_sh_handler))
+        .route("/install.ps1", get(install_ps1_handler));
+
     Router::new()
+        .merge(public_routes)
         .merge(api_routes)
         .merge(admin_routes)
         .merge(alerting_routes)

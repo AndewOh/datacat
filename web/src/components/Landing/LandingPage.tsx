@@ -4,7 +4,7 @@
  * Route: #/about
  *
  * Sections:
- *   1. Hero
+ *   1. Hero (install-first)
  *   2. Feature grid (6 cards, 3-column)
  *   3. Architecture diagram
  *   4. Performance SLOs
@@ -12,7 +12,7 @@
  *   6. Footer
  */
 
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,8 @@ interface SloStat {
   value: string;
   sub: string;
 }
+
+type InstallTab = 'shell' | 'docker' | 'kubernetes';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -84,26 +86,97 @@ Browser ← datacat-web ← datacat-api ← datacat-query ←──────�
 const QUICKSTART = `git clone https://github.com/your-org/datacat
 cd datacat && ./scripts/quickstart.sh`;
 
+const INSTALL_TABS: { id: InstallTab; label: string }[] = [
+  { id: 'shell',      label: 'Linux / macOS' },
+  { id: 'docker',     label: 'Docker'        },
+  { id: 'kubernetes', label: 'Kubernetes'    },
+];
+
+const INSTALL_COMMANDS: Record<InstallTab, string> = {
+  shell: `curl -sSL http://localhost:8000/install.sh | \\
+  DATACAT_HOST=localhost:4317 \\
+  DATACAT_SERVICE=my-app \\
+  bash`,
+  docker: `docker compose -f docker-compose.yml \\
+  -f https://raw.githubusercontent.com/datacat/datacat/main/deploy/docker/docker-compose.otel.yml up -d`,
+  kubernetes: `kubectl apply -f https://raw.githubusercontent.com/datacat/datacat/main/deploy/kubernetes/instrumentation.yaml`,
+};
+
+const INSTALL_HINTS: Record<InstallTab, string> = {
+  shell:      'Auto-detects language · Installs OTel agent · Ships to your datacat cluster',
+  docker:     'Adds OTel collector sidecar · Mounts shared network · Zero app changes needed',
+  kubernetes: 'Deploys OTel operator · Auto-instruments pods via annotation · Cluster-wide',
+};
+
+const BULLETS = [
+  '✓ Zero config — auto-detects Java / Python / Node / Go',
+  '✓ No code changes — instrumentation via OTel SDK',
+  '✓ On-prem or cloud — your choice',
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function InstallCard() {
+  const [tab, setTab]       = useState<InstallTab>('shell');
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    void navigator.clipboard.writeText(INSTALL_COMMANDS[tab]).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div style={s.installCard}>
+      {/* Tab row */}
+      <div style={s.tabRow}>
+        {INSTALL_TABS.map(({ id, label }) => (
+          <button
+            key={id}
+            style={tab === id ? s.tabActive : s.tabInactive}
+            onClick={() => { setTab(id); setCopied(false); }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Code block */}
+      <div style={s.codeWrap}>
+        <pre style={s.installCode}>{INSTALL_COMMANDS[tab]}</pre>
+        <button
+          style={copied ? s.copyBtnDone : s.copyBtn}
+          onClick={handleCopy}
+          aria-label="Copy command"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+
+      {/* Hint */}
+      <p style={s.installHint}>{INSTALL_HINTS[tab]}</p>
+    </div>
+  );
+}
 
 function Hero() {
   return (
     <section style={s.hero}>
       <div style={s.heroInner}>
-        <div style={s.heroLogo}>
-          <span style={s.heroLogoText}>datacat</span>
-          <span style={s.heroLogoDot}>.</span>
-        </div>
-        <p style={s.heroTagline}>
-          1M spans/second.&nbsp; Sub-500ms X-View.&nbsp; Self-hosted.
+        {/* Headline */}
+        <h1 style={s.heroH1}>Install datacat in 30 seconds.</h1>
+        <p style={s.heroSubtitle}>
+          Drop-in OpenTelemetry observability. Traces, metrics, logs, profiles — one platform, one line.
         </p>
-        <p style={s.heroSub}>
-          Open-source observability platform combining Jennifer APM's X-View with
-          Datadog-breadth signal coverage — built on Rust, ClickHouse, and Redpanda.
-        </p>
-        <div style={s.heroBadges}>
-          {['Rust', 'ClickHouse', 'Redpanda', 'OTLP', 'WebGL2', 'Self-hosted'].map((b) => (
-            <span key={b} style={s.badge}>{b}</span>
+
+        {/* Install card */}
+        <InstallCard />
+
+        {/* Supporting bullets */}
+        <div style={s.bullets}>
+          {BULLETS.map((b) => (
+            <span key={b} style={s.bullet}>{b}</span>
           ))}
         </div>
       </div>
@@ -234,11 +307,13 @@ export function LandingPage() {
 const ACCENT   = '#58A6FF';
 const BG_PAGE  = '#0D1117';
 const BG_CARD  = 'rgba(22,27,34,0.6)';
+const BG_CARD2 = '#161B22';
 const BORDER   = '#21262D';
+const BORDER2  = '#30363D';
 const TEXT_PRI = '#C9D1D9';
 const TEXT_SEC = '#8B949E';
 const TEXT_DIM = 'rgba(139,148,158,0.6)';
-const MONO     = "'Courier New', 'Menlo', 'Monaco', monospace";
+const MONO     = "'ui-monospace', 'Menlo', 'Monaco', monospace";
 const SANS     = 'system-ui, -apple-system, sans-serif';
 
 const s: Record<string, CSSProperties> = {
@@ -255,73 +330,150 @@ const s: Record<string, CSSProperties> = {
     overflowX:  'hidden',
   },
 
-  // Hero
+  // ── Hero ──────────────────────────────────────────────────────────────────
   hero: {
-    padding:         '72px 0 64px',
-    borderBottom:    `1px solid ${BORDER}`,
-    textAlign:       'center',
+    minHeight:      '70vh',
+    display:        'flex',
+    alignItems:     'center',
+    justifyContent: 'center',
+    padding:        '72px 24px 64px',
+    borderBottom:   `1px solid ${BORDER}`,
   },
   heroInner: {
-    maxWidth:  720,
+    maxWidth:  780,
+    width:     '100%',
     margin:    '0 auto',
-    padding:   '0 24px',
+    textAlign: 'center',
   },
-  heroLogo: {
-    display:        'inline-flex',
-    alignItems:     'baseline',
-    gap:            2,
-    marginBottom:   20,
-  },
-  heroLogoText: {
+  heroH1: {
     fontSize:      48,
     fontWeight:    800,
     color:         TEXT_PRI,
-    fontFamily:    MONO,
-    letterSpacing: '-0.04em',
-    lineHeight:    1,
+    letterSpacing: '-0.03em',
+    lineHeight:    1.1,
+    margin:        '0 0 16px',
   },
-  heroLogoDot: {
-    fontSize:   56,
-    fontWeight: 800,
-    color:      ACCENT,
-    lineHeight: 1,
-  },
-  heroTagline: {
-    fontSize:     22,
-    fontWeight:   600,
-    color:        TEXT_PRI,
-    margin:       '0 0 16px',
-    letterSpacing: '-0.01em',
-    lineHeight:   1.4,
-  },
-  heroSub: {
-    fontSize:   15,
+  heroSubtitle: {
+    fontSize:   17,
     color:      TEXT_SEC,
-    lineHeight: 1.7,
-    margin:     '0 0 28px',
-    maxWidth:   600,
+    lineHeight: 1.6,
+    margin:     '0 0 40px',
+    maxWidth:   620,
     marginLeft: 'auto',
     marginRight: 'auto',
   },
-  heroBadges: {
-    display:        'flex',
-    gap:            8,
-    justifyContent: 'center',
-    flexWrap:       'wrap',
+
+  // ── Install card ──────────────────────────────────────────────────────────
+  installCard: {
+    background:   BG_CARD2,
+    border:       `1px solid ${BORDER2}`,
+    borderRadius: 12,
+    overflow:     'hidden',
+    marginBottom: 32,
+    textAlign:    'left',
   },
-  badge: {
+  tabRow: {
+    display:    'flex',
+    gap:        8,
+    padding:    '16px 20px 0',
+    borderBottom: `1px solid ${BORDER}`,
+    paddingBottom: 0,
+  },
+  tabActive: {
+    fontSize:       12,
+    fontWeight:     600,
+    color:          BG_PAGE,
+    background:     ACCENT,
+    border:         `1px solid ${ACCENT}`,
+    borderRadius:   20,
+    padding:        '5px 14px',
+    cursor:         'pointer',
+    marginBottom:   12,
+    fontFamily:     SANS,
+    outline:        'none',
+  },
+  tabInactive: {
+    fontSize:       12,
+    fontWeight:     600,
+    color:          TEXT_SEC,
+    background:     'transparent',
+    border:         `1px solid ${BORDER2}`,
+    borderRadius:   20,
+    padding:        '5px 14px',
+    cursor:         'pointer',
+    marginBottom:   12,
+    fontFamily:     SANS,
+    outline:        'none',
+  },
+  codeWrap: {
+    position:   'relative',
+    padding:    '24px 20px 20px',
+  },
+  installCode: {
+    fontFamily: MONO,
+    fontSize:   14,
+    lineHeight: 1.7,
+    color:      '#E6EDF3',
+    margin:     0,
+    whiteSpace: 'pre',
+    overflowX:  'auto',
+    paddingRight: 80,
+  },
+  copyBtn: {
+    position:     'absolute',
+    top:          16,
+    right:        16,
+    fontSize:     11,
+    fontWeight:   600,
+    color:        TEXT_SEC,
+    background:   'transparent',
+    border:       `1px solid ${BORDER2}`,
+    borderRadius: 6,
+    padding:      '4px 12px',
+    cursor:       'pointer',
+    fontFamily:   SANS,
+    outline:      'none',
+    whiteSpace:   'nowrap',
+  },
+  copyBtnDone: {
+    position:     'absolute',
+    top:          16,
+    right:        16,
     fontSize:     11,
     fontWeight:   600,
     color:        ACCENT,
-    background:   'rgba(88,166,255,0.08)',
-    border:       `1px solid rgba(88,166,255,0.2)`,
-    borderRadius: 4,
-    padding:      '4px 10px',
+    background:   'rgba(88,166,255,0.1)',
+    border:       `1px solid rgba(88,166,255,0.3)`,
+    borderRadius: 6,
+    padding:      '4px 12px',
+    cursor:       'pointer',
+    fontFamily:   SANS,
+    outline:      'none',
+    whiteSpace:   'nowrap',
+  },
+  installHint: {
+    fontSize:     12,
+    color:        TEXT_DIM,
+    margin:       '0',
+    padding:      '0 20px 18px',
     fontFamily:   MONO,
-    letterSpacing: '0.04em',
+    letterSpacing: '0.01em',
   },
 
-  // Sections
+  // ── Bullets ───────────────────────────────────────────────────────────────
+  bullets: {
+    display:        'flex',
+    gap:            24,
+    justifyContent: 'center',
+    flexWrap:       'wrap',
+  },
+  bullet: {
+    fontSize:   13,
+    color:      TEXT_SEC,
+    lineHeight: 1.5,
+  },
+
+  // ── Sections ──────────────────────────────────────────────────────────────
   section: {
     maxWidth:     960,
     margin:       '0 auto',
@@ -338,7 +490,7 @@ const s: Record<string, CSSProperties> = {
     fontFamily:    MONO,
   },
 
-  // Feature grid
+  // ── Feature grid ──────────────────────────────────────────────────────────
   grid: {
     display:             'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -353,14 +505,14 @@ const s: Record<string, CSSProperties> = {
     cursor:       'default',
   },
   cardHeader: {
-    display:     'flex',
-    alignItems:  'center',
-    gap:         8,
+    display:      'flex',
+    alignItems:   'center',
+    gap:          8,
     marginBottom: 10,
   },
   cardIcon: {
-    fontSize:  16,
-    color:     ACCENT,
+    fontSize:   16,
+    color:      ACCENT,
     flexShrink: 0,
     lineHeight: 1,
   },
@@ -371,15 +523,15 @@ const s: Record<string, CSSProperties> = {
     flex:       1,
   },
   cardTag: {
-    fontSize:     10,
-    fontWeight:   600,
-    color:        TEXT_DIM,
-    background:   'rgba(48,54,61,0.8)',
-    borderRadius: 3,
-    padding:      '2px 6px',
-    fontFamily:   MONO,
+    fontSize:      10,
+    fontWeight:    600,
+    color:         TEXT_DIM,
+    background:    'rgba(48,54,61,0.8)',
+    borderRadius:  3,
+    padding:       '2px 6px',
+    fontFamily:    MONO,
     letterSpacing: '0.04em',
-    flexShrink:   0,
+    flexShrink:    0,
   },
   cardDesc: {
     fontSize:   13,
@@ -388,7 +540,7 @@ const s: Record<string, CSSProperties> = {
     margin:     0,
   },
 
-  // Architecture
+  // ── Architecture ──────────────────────────────────────────────────────────
   codeBlock: {
     background:   'rgba(13,17,23,0.8)',
     border:       `1px solid ${BORDER}`,
@@ -418,7 +570,7 @@ const s: Record<string, CSSProperties> = {
     border:       `1px solid rgba(88,166,255,0.15)`,
   },
 
-  // SLO grid
+  // ── SLO grid ──────────────────────────────────────────────────────────────
   sloGrid: {
     display:             'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -453,7 +605,7 @@ const s: Record<string, CSSProperties> = {
     color:    TEXT_DIM,
   },
 
-  // Quick start
+  // ── Quick start ───────────────────────────────────────────────────────────
   quickStartSub: {
     fontSize:   14,
     color:      TEXT_SEC,
@@ -461,7 +613,7 @@ const s: Record<string, CSSProperties> = {
     margin:     '0 0 20px',
   },
 
-  // Footer
+  // ── Footer ────────────────────────────────────────────────────────────────
   footer: {
     maxWidth:       960,
     margin:         '0 auto',
