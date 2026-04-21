@@ -788,7 +788,15 @@ async fn alerting_proxy_handler(
         Ok(resp) => {
             let status = StatusCode::from_u16(resp.status().as_u16())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-            match resp.json::<serde_json::Value>().await {
+            // 204 No Content 등 본문 없는 응답은 파싱하지 않는다
+            if status == StatusCode::NO_CONTENT {
+                return status.into_response();
+            }
+            let bytes = resp.bytes().await.unwrap_or_default();
+            if bytes.is_empty() {
+                return status.into_response();
+            }
+            match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(body) => (status, Json(body)).into_response(),
                 Err(e) => {
                     error!(error = %e, "alerting 프록시 응답 파싱 실패");
@@ -861,7 +869,14 @@ async fn admin_proxy_handler(
         Ok(resp) => {
             let status = StatusCode::from_u16(resp.status().as_u16())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-            match resp.json::<serde_json::Value>().await {
+            if status == StatusCode::NO_CONTENT {
+                return status.into_response();
+            }
+            let bytes = resp.bytes().await.unwrap_or_default();
+            if bytes.is_empty() {
+                return status.into_response();
+            }
+            match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(body) => (status, Json(body)).into_response(),
                 Err(e) => {
                     error!(error = %e, "admin 프록시 응답 파싱 실패");
