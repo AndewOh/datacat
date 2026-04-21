@@ -124,7 +124,10 @@ export function Dashboard() {
 const styles = {
   root: {
     display: 'flex',
-    height: '100vh',
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    minWidth: 0,
     background: '#0D1117',
     overflow: 'hidden',
     fontFamily: 'system-ui, -apple-system, sans-serif',
