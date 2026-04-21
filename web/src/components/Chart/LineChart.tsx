@@ -98,7 +98,7 @@ function drawMultiSeries(
     ctx.font = '13px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No data', W / 2, H / 2);
+    ctx.fillText('데이터 없음', W / 2, H / 2);
     return;
   }
 
@@ -214,7 +214,7 @@ function draw(
     ctx.font = '13px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No data', W / 2, H / 2);
+    ctx.fillText('데이터 없음', W / 2, H / 2);
     return;
   }
 
@@ -463,7 +463,7 @@ export function LineChart({
         style={isMulti && legendItems.length > 0 ? styles.canvasWithLegend : styles.canvas}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        aria-label="Line chart"
+        aria-label="라인 차트"
         role="img"
       />
       {isMulti && legendItems.length > 0 && (

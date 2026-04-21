@@ -36,7 +36,7 @@ beforeEach(() => {
 describe('LogMetricsView — rule list', () => {
   it('renders the section title', async () => {
     render(<LogMetricsView />);
-    expect(await screen.findByText('Log Metric Rules')).toBeInTheDocument();
+    expect(await screen.findByText('로그 메트릭 규칙')).toBeInTheDocument();
   });
 
   it('shows the metric name for each fallback rule', async () => {
@@ -56,9 +56,9 @@ describe('LogMetricsView — rule list', () => {
 
   it('renders a delete button for each rule', async () => {
     render(<LogMetricsView />);
-    // Each RuleCard renders a delete button with aria-label "Delete rule <name>"
+    // Each RuleCard renders a delete button with aria-label "규칙 삭제: <name>"
     const deleteButtons = await screen.findAllByRole('button', {
-      name: /delete rule/i,
+      name: /규칙 삭제/i,
     });
     expect(deleteButtons).toHaveLength(2); // MOCK_RULES has 2 entries
   });
@@ -95,44 +95,44 @@ describe('LogMetricsView — rule list', () => {
 });
 
 describe('LogMetricsView — form visibility', () => {
-  it('renders the "+ New Rule" button', async () => {
+  it('renders the "+ 새 규칙" button', async () => {
     render(<LogMetricsView />);
-    const newRuleBtn = await screen.findByRole('button', { name: /new rule/i });
+    const newRuleBtn = await screen.findByRole('button', { name: /새 규칙/i });
     expect(newRuleBtn).toBeInTheDocument();
   });
 
   it('does not show the form before the button is clicked', async () => {
     render(<LogMetricsView />);
     // Wait for initial render to settle
-    await screen.findByText('Log Metric Rules');
-    expect(screen.queryByText('New Rule')).not.toBeInTheDocument();
+    await screen.findByText('로그 메트릭 규칙');
+    expect(screen.queryByText('새 규칙')).not.toBeInTheDocument();
   });
 
-  it('reveals the form when "+ New Rule" is clicked', async () => {
+  it('reveals the form when "+ 새 규칙" is clicked', async () => {
     render(<LogMetricsView />);
-    const btn = await screen.findByRole('button', { name: /new rule/i });
+    const btn = await screen.findByRole('button', { name: /새 규칙/i });
     fireEvent.click(btn);
-    expect(await screen.findByText('New Rule')).toBeInTheDocument();
+    expect(await screen.findByText('새 규칙')).toBeInTheDocument();
   });
 });
 
 describe('LogMetricsView — form fields', () => {
   async function openForm() {
     render(<LogMetricsView />);
-    const btn = await screen.findByRole('button', { name: /new rule/i });
+    const btn = await screen.findByRole('button', { name: /새 규칙/i });
     fireEvent.click(btn);
     // Wait for the form title to confirm it's open
-    await screen.findByText('New Rule');
+    await screen.findByText('새 규칙');
   }
 
   it('shows the Metric name input', async () => {
     await openForm();
-    expect(screen.getByPlaceholderText(/e\.g\. error\.count/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('예: error.count')).toBeInTheDocument();
   });
 
   it('shows the Description input', async () => {
     await openForm();
-    expect(screen.getByPlaceholderText(/optional/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('선택 사항')).toBeInTheDocument();
   });
 
   it('shows the Filter type select with expected options', async () => {
@@ -150,12 +150,12 @@ describe('LogMetricsView — form fields', () => {
 
   it('shows the Filter value input', async () => {
     await openForm();
-    expect(screen.getByPlaceholderText(/value to match/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('매칭할 값')).toBeInTheDocument();
   });
 
   it('shows the Value field input', async () => {
     await openForm();
-    expect(screen.getByPlaceholderText(/leave empty for count/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('비워두면 count로 처리')).toBeInTheDocument();
   });
 
   it('shows the Metric type select', async () => {
@@ -172,28 +172,28 @@ describe('LogMetricsView — form fields', () => {
   it('shows the Group by select', async () => {
     await openForm();
     // aria-label is not set on the select; find by its label text instead
-    const labels = screen.getAllByText('Group by');
+    const labels = screen.getAllByText('그룹화 기준');
     expect(labels.length).toBeGreaterThan(0);
   });
 
-  it('shows a disabled "Create Rule" button when required fields are empty', async () => {
+  it('shows a disabled "규칙 생성" button when required fields are empty', async () => {
     await openForm();
-    const createBtn = screen.getByRole('button', { name: /create rule/i });
+    const createBtn = screen.getByRole('button', { name: /규칙 생성/i });
     expect(createBtn).toBeDisabled();
   });
 
-  it('enables "Create Rule" after filling required fields', async () => {
+  it('enables "규칙 생성" after filling required fields', async () => {
     await openForm();
 
-    fireEvent.change(screen.getByPlaceholderText(/e\.g\. error\.count/i), {
+    fireEvent.change(screen.getByPlaceholderText('예: error.count'), {
       target: { value: 'my.metric' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/value to match/i), {
+    fireEvent.change(screen.getByPlaceholderText('매칭할 값'), {
       target: { value: 'ERROR' },
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /create rule/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /규칙 생성/i })).not.toBeDisabled();
     });
   });
 });

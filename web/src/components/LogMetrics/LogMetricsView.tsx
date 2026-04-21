@@ -90,7 +90,7 @@ export function LogMetricsView() {
       await deleteLogMetricRule(ruleId);
       await loadRules();
     } catch {
-      setDeleteError(`Failed to delete rule ${ruleId}`);
+      setDeleteError(`규칙 삭제에 실패했습니다: ${ruleId}`);
     }
   }, [loadRules]);
 
@@ -126,7 +126,7 @@ export function LogMetricsView() {
       await createLogMetricRule(req);
       setForm({ ...EMPTY_FORM });
       setShowForm(false);
-      setSuccessMsg('Rule created.');
+      setSuccessMsg('규칙이 생성되었습니다.');
       setTimeout(() => setSuccessMsg(''), 3000);
       await loadRules();
     } catch {
@@ -139,7 +139,7 @@ export function LogMetricsView() {
   return (
     <div style={s.root}>
       <div style={s.header}>
-        <span style={s.title}>Log Metric Rules</span>
+        <span style={s.title}>로그 메트릭 규칙</span>
         {usingMock && <span style={s.mockChip}>MOCK</span>}
         {successMsg && <span style={s.successMsg}>{successMsg}</span>}
         {deleteError && <span style={s.errorMsg}>{deleteError}</span>}
@@ -148,14 +148,14 @@ export function LogMetricsView() {
           onClick={() => setShowForm((v) => !v)}
           aria-pressed={showForm}
         >
-          {showForm ? '× Cancel' : '+ New Rule'}
+          {showForm ? '× 취소' : '+ 새 규칙'}
         </button>
       </div>
 
       <div style={s.body}>
         <div style={s.rulesList}>
           {rules.length === 0 ? (
-            <div style={s.emptyList}>No rules defined.</div>
+            <div style={s.emptyList}>정의된 규칙이 없습니다.</div>
           ) : (
             rules.map((rule) => (
               <RuleCard key={rule.rule_id} rule={rule} onDelete={handleDelete} />
@@ -174,7 +174,7 @@ export function LogMetricsView() {
           ) : (
             <div style={s.emptyState}>
               <span style={s.emptyIcon}>◎</span>
-              <span style={s.emptyText}>Click "+ New Rule" to create a log metric rule.</span>
+              <span style={s.emptyText}>"+ 새 규칙"을 클릭하여 로그 메트릭 규칙을 생성하세요.</span>
             </div>
           )}
         </div>
@@ -201,23 +201,23 @@ function RuleCard({
         <button
           style={s.deleteBtn}
           onClick={() => onDelete(rule.rule_id)}
-          aria-label={`Delete rule ${rule.metric_name}`}
-          title="Delete rule"
+          aria-label={`규칙 삭제: ${rule.metric_name}`}
+          title="규칙 삭제"
         >
           ×
         </button>
       </div>
       <div style={s.ruleDetail}>
-        <span style={s.ruleDetailLabel}>Filter</span>
+        <span style={s.ruleDetailLabel}>필터</span>
         <span style={s.ruleDetailVal}>{rule.filter_type}: {rule.filter_value}</span>
       </div>
       <div style={s.ruleDetail}>
-        <span style={s.ruleDetailLabel}>Value</span>
+        <span style={s.ruleDetailLabel}>값</span>
         <span style={s.ruleDetailVal}>{valueLabel}</span>
       </div>
       {rule.group_by && (
         <div style={s.ruleDetail}>
-          <span style={s.ruleDetailLabel}>Group by</span>
+          <span style={s.ruleDetailLabel}>그룹화 기준</span>
           <span style={s.ruleDetailVal}>{rule.group_by}</span>
         </div>
       )}
@@ -243,29 +243,29 @@ function NewRuleForm({
 
   return (
     <div style={s.formWrap}>
-      <div style={s.formTitle}>New Rule</div>
+      <div style={s.formTitle}>새 규칙</div>
 
-      <Field label="Metric name">
+      <Field label="메트릭 이름">
         <input
           style={s.input}
           type="text"
-          placeholder="e.g. error.count"
+          placeholder="예: error.count"
           value={form.metric_name}
           onChange={(e) => onChange('metric_name', e.target.value)}
         />
       </Field>
 
-      <Field label="Description">
+      <Field label="설명">
         <input
           style={s.input}
           type="text"
-          placeholder="Optional"
+          placeholder="선택 사항"
           value={form.description}
           onChange={(e) => onChange('description', e.target.value)}
         />
       </Field>
 
-      <Field label="Filter type">
+      <Field label="필터 타입">
         <select
           style={s.input}
           value={form.filter_type}
@@ -277,27 +277,27 @@ function NewRuleForm({
         </select>
       </Field>
 
-      <Field label="Filter value">
+      <Field label="필터 값">
         <input
           style={s.input}
           type="text"
-          placeholder="Value to match"
+          placeholder="매칭할 값"
           value={form.filter_value}
           onChange={(e) => onChange('filter_value', e.target.value)}
         />
       </Field>
 
-      <Field label="Value field">
+      <Field label="값 필드">
         <input
           style={s.input}
           type="text"
-          placeholder="Leave empty for count"
+          placeholder="비워두면 count로 처리"
           value={form.value_field}
           onChange={(e) => onChange('value_field', e.target.value)}
         />
       </Field>
 
-      <Field label="Metric type">
+      <Field label="메트릭 타입">
         <select
           style={s.input}
           value={form.metric_type_str}
@@ -308,7 +308,7 @@ function NewRuleForm({
         </select>
       </Field>
 
-      <Field label="Group by">
+      <Field label="그룹화 기준">
         <select
           style={s.input}
           value={form.group_by}
@@ -329,7 +329,7 @@ function NewRuleForm({
         disabled={!canSubmit}
         onClick={onSubmit}
       >
-        {submitting ? 'Creating…' : 'Create Rule'}
+        {submitting ? '생성 중…' : '규칙 생성'}
       </button>
     </div>
   );

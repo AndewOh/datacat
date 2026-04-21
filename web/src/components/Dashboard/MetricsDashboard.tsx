@@ -52,15 +52,15 @@ function MetricPanel({
       <div style={panelStyles.header}>
         <div style={{ ...panelStyles.colorDot, background: color }} />
 
-        <label htmlFor={selectId} className="sr-only">Metric</label>
+        <label htmlFor={selectId} className="sr-only">메트릭</label>
         <select
           id={selectId}
           style={panelStyles.metricSelect}
           value={panel.query}
           onChange={(e) => onQueryChange(panel.id, e.target.value)}
-          aria-label="Select metric"
+          aria-label="메트릭 선택"
         >
-          <option value="" disabled>— select metric —</option>
+          <option value="" disabled>— 메트릭 선택 —</option>
           {availableMetrics.map((m) => (
             <option key={`${m.service}/${m.name}`} value={m.name}>
               {m.name}
@@ -75,7 +75,7 @@ function MetricPanel({
         <button
           style={panelStyles.removeBtn}
           onClick={() => onRemove(panel.id)}
-          aria-label="Remove panel"
+          aria-label="패널 삭제"
           title="패널 삭제"
         >
           ×
@@ -165,8 +165,8 @@ export function MetricsDashboard({ timeRange }: MetricsDashboardProps) {
     <div style={rootStyles.root}>
       {/* Toolbar */}
       <div style={rootStyles.toolbar}>
-        <span style={rootStyles.title}>Dashboard Builder</span>
-        <span style={rootStyles.count}>{panels.length} / 4 panels</span>
+        <span style={rootStyles.title}>대시보드 빌더</span>
+        <span style={rootStyles.count}>{panels.length} / 4 패널</span>
 
         <button
           style={{
@@ -176,9 +176,9 @@ export function MetricsDashboard({ timeRange }: MetricsDashboardProps) {
           }}
           onClick={handleAdd}
           disabled={!canAdd || namesLoading}
-          aria-label="Add metric panel"
+          aria-label="메트릭 패널 추가"
         >
-          + Add Panel
+          + 패널 추가
         </button>
       </div>
 
@@ -196,7 +196,7 @@ export function MetricsDashboard({ timeRange }: MetricsDashboardProps) {
               onClick={handleAdd}
               disabled={namesLoading}
             >
-              {namesLoading ? '로딩 중…' : '+ Add Panel'}
+              {namesLoading ? '로딩 중…' : '+ 패널 추가'}
             </button>
           </div>
         </div>

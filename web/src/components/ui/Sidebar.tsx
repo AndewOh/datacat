@@ -39,7 +39,7 @@ export function Sidebar({ selectedService, onSelectService, stats }: SidebarProp
   const showErrBadge = errRate > 1;
 
   return (
-    <aside style={styles.sidebar} aria-label="Service list">
+    <aside style={styles.sidebar} aria-label="서비스 목록">
       {/* Logo */}
       <div style={styles.logoArea}>
         <span style={styles.logoText}>datacat</span>
@@ -47,7 +47,7 @@ export function Sidebar({ selectedService, onSelectService, stats }: SidebarProp
       </div>
 
       <nav style={styles.nav}>
-        <p style={styles.sectionLabel}>SERVICES</p>
+        <p style={styles.sectionLabel}>서비스</p>
 
         {/* All Services */}
         <button
@@ -64,7 +64,7 @@ export function Sidebar({ selectedService, onSelectService, stats }: SidebarProp
           aria-current={selectedService === null ? 'page' : undefined}
         >
           <span style={{ ...styles.statusDot, background: '#3FB950', boxShadow: '0 0 5px #3FB950' }} />
-          <span style={styles.serviceName}>All Services</span>
+          <span style={styles.serviceName}>전체 서비스</span>
           {stats && (
             <span style={styles.p99}>
               {fmtP99(stats.p99_ns)}

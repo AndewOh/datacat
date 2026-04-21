@@ -5,10 +5,10 @@
 import type { XViewStats, Service } from '../../api/client';
 
 const TIME_RANGES = [
-  { label: 'Last 15m', value: '15m' },
-  { label: 'Last 1h',  value: '1h'  },
-  { label: 'Last 6h',  value: '6h'  },
-  { label: 'Last 24h', value: '24h' },
+  { label: '최근 15분', value: '15m' },
+  { label: '최근 1시간', value: '1h'  },
+  { label: '최근 6시간', value: '6h'  },
+  { label: '최근 24시간', value: '24h' },
 ] as const;
 
 interface TopBarProps {
@@ -58,7 +58,7 @@ export function TopBar({
       </div>
 
       {/* Time range selector */}
-      <div style={styles.controls} role="group" aria-label="Time range">
+      <div style={styles.controls} role="group" aria-label="시간 범위">
         {TIME_RANGES.map((tr) => {
           const active = timeRange === tr.value;
           return (
@@ -85,9 +85,9 @@ export function TopBar({
           style={styles.dropdown}
           value={selectedService ?? ''}
           onChange={(e) => onServiceChange(e.target.value || null)}
-          aria-label="Select service"
+          aria-label="서비스 선택"
         >
-          <option value="">All Services</option>
+          <option value="">전체 서비스</option>
           {services.map((svc) => (
             <option key={`${svc.name}:${svc.env}`} value={svc.name}>
               {svc.name} ({svc.env})
@@ -98,18 +98,18 @@ export function TopBar({
 
       {/* Stats badges */}
       {stats && (
-        <div style={styles.statsRow} aria-label="Current statistics">
-          <div style={styles.statBadge} title="Total spans">
+        <div style={styles.statsRow} aria-label="현재 통계">
+          <div style={styles.statBadge} title="전체 스팬">
             <span style={styles.statLabel}>Spans</span>
             <span style={styles.statValue}>{stats.total.toLocaleString()}</span>
           </div>
-          <div style={styles.statBadge} title="Error rate">
+          <div style={styles.statBadge} title="에러율">
             <span style={styles.statLabel}>Err%</span>
             <span style={{ ...styles.statValue, color: errColor }}>
               {errorRate(stats)}
             </span>
           </div>
-          <div style={styles.statBadge} title="p99 response time">
+          <div style={styles.statBadge} title="p99 응답시간">
             <span style={styles.statLabel}>p99</span>
             <span style={styles.statValue}>{fmtNs(stats.p99_ns)}</span>
           </div>
@@ -124,7 +124,7 @@ export function TopBar({
           </span>
         )}
         {loading ? (
-          <span style={styles.spinner} aria-label="Loading" />
+          <span style={styles.spinner} aria-label="로딩 중" />
         ) : (
           <>
             <span style={styles.liveDot} aria-hidden="true" />

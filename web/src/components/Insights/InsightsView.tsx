@@ -177,7 +177,7 @@ interface ChatMessage {
 const INITIAL_MESSAGE: ChatMessage = {
   id:   'init',
   role: 'assistant',
-  text: "Hi! I can analyze your system's health. Try asking: 'Are there any slow services?' or 'Show me recent errors'",
+  text: "안녕하세요! 시스템 상태를 분석해 드릴게요. 예시 질문: '느린 서비스가 있나요?' 또는 '최근 오류를 보여주세요'",
 };
 
 // ─── Panel 1: Anomaly Feed ────────────────────────────────────────────────────
@@ -204,15 +204,15 @@ function AnomalyFeed() {
     <div style={s.anomalyPanel}>
       {/* Header */}
       <div style={s.panelHeader}>
-        <span style={s.panelTitle}>Anomaly Feed</span>
+        <span style={s.panelTitle}>이상 감지 피드</span>
         <button
           style={{ ...s.actionBtn, ...(loading ? s.actionBtnDisabled : {}) }}
           onClick={analyze}
           disabled={loading}
-          aria-label="Run anomaly detection"
+          aria-label="이상 감지 실행"
         >
           {loading ? <Spinner size={10} /> : null}
-          {loading ? 'Analyzing…' : 'Analyze'}
+          {loading ? '분석 중…' : '분석'}
         </button>
       </div>
 
@@ -221,17 +221,17 @@ function AnomalyFeed() {
         {loading && !hasRun ? (
           <CenteredState>
             <Spinner size={20} />
-            <span style={s.emptyText}>Analyzing…</span>
+            <span style={s.emptyText}>분석 중…</span>
           </CenteredState>
         ) : !hasRun ? (
           <CenteredState>
             <span style={s.emptyIcon}>⚡</span>
-            <span style={s.emptyText}>Click Analyze to start</span>
+            <span style={s.emptyText}>분석 버튼을 눌러 시작하세요</span>
           </CenteredState>
         ) : anomalies.length === 0 ? (
           <CenteredState>
             <span style={s.emptyIcon}>✓</span>
-            <span style={s.emptyText}>No anomalies detected</span>
+            <span style={s.emptyText}>이상 없음</span>
           </CenteredState>
         ) : (
           <div style={s.anomalyList}>
@@ -273,12 +273,12 @@ function AnomalyCard({ anomaly: a }: { anomaly: AnomalyReport }) {
 
       <div style={s.anomalyValues}>
         <div style={s.anomalyValueGroup}>
-          <span style={s.anomalyValueLabel}>Baseline</span>
+          <span style={s.anomalyValueLabel}>기준값</span>
           <span style={s.anomalyValueNum}>{a.metric === 'error_rate' ? `${(a.baseline * 100).toFixed(2)}%` : `${a.baseline.toFixed(0)}ms`}</span>
         </div>
         <span style={s.anomalyArrow}>→</span>
         <div style={{ ...s.anomalyValueGroup, alignItems: 'flex-end' as const }}>
-          <span style={s.anomalyValueLabel}>Current</span>
+          <span style={s.anomalyValueLabel}>현재값</span>
           <span style={{ ...s.anomalyValueNum, color: scoreColor }}>
             {a.metric === 'error_rate' ? `${(a.current * 100).toFixed(2)}%` : `${a.current.toFixed(0)}ms`}
           </span>
@@ -315,7 +315,7 @@ function PatternDetection() {
     <div style={s.patternPanel}>
       {/* Header */}
       <div style={s.panelHeader}>
-        <span style={s.panelTitle}>Pattern Detection</span>
+        <span style={s.panelTitle}>패턴 감지</span>
         <div style={s.patternControls}>
           {TIME_RANGE_OPTIONS.map((opt) => {
             const active = rangeMs === opt.ms;
@@ -341,7 +341,7 @@ function PatternDetection() {
             disabled={loading}
           >
             {loading ? <Spinner size={10} /> : null}
-            {loading ? 'Detecting…' : 'Detect'}
+            {loading ? '감지 중…' : '감지'}
           </button>
         </div>
       </div>
@@ -351,17 +351,17 @@ function PatternDetection() {
         {loading && !hasRun ? (
           <CenteredState>
             <Spinner size={20} />
-            <span style={s.emptyText}>Detecting patterns…</span>
+            <span style={s.emptyText}>패턴 감지 중…</span>
           </CenteredState>
         ) : !hasRun ? (
           <CenteredState>
             <span style={s.emptyIcon}>⬡</span>
-            <span style={s.emptyText}>Select a time range and click Detect</span>
+            <span style={s.emptyText}>시간 범위를 선택하고 감지를 클릭하세요</span>
           </CenteredState>
         ) : patterns.length === 0 ? (
           <CenteredState>
             <span style={s.emptyIcon}>○</span>
-            <span style={s.emptyText}>No patterns detected in selected time range</span>
+            <span style={s.emptyText}>선택한 시간 범위에서 패턴이 없습니다</span>
           </CenteredState>
         ) : (
           <div style={s.patternGrid}>
@@ -399,7 +399,7 @@ function PatternCard({ pattern: p }: { pattern: PatternDetected }) {
 
       {/* Confidence bar */}
       <div style={s.confRow}>
-        <span style={s.confLabel}>Confidence</span>
+        <span style={s.confLabel}>신뢰도</span>
         <span style={{ ...s.confPct, color: meta.color }}>{Math.round(p.confidence * 100)}%</span>
       </div>
       <div style={s.confTrack}>
@@ -489,7 +489,7 @@ function AIChat() {
     <div style={s.chatPanel}>
       {/* Header */}
       <div style={s.panelHeader}>
-        <span style={s.panelTitle}>AI Assistant</span>
+        <span style={s.panelTitle}>AI 어시스턴트</span>
         <span style={s.aiBadge}>AI</span>
       </div>
 
@@ -501,7 +501,7 @@ function AIChat() {
         {sending && (
           <div style={s.typingRow}>
             <Spinner size={12} />
-            <span style={s.typingText}>Analyzing…</span>
+            <span style={s.typingText}>분석 중…</span>
           </div>
         )}
       </div>
@@ -514,10 +514,10 @@ function AIChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about your system… (Enter to send, Shift+Enter for newline)"
+          placeholder="시스템 상태를 질문하세요… (Enter: 전송, Shift+Enter: 줄바꿈)"
           rows={2}
           disabled={sending}
-          aria-label="Chat message input"
+          aria-label="채팅 메시지 입력"
         />
         <button
           style={{
@@ -526,7 +526,7 @@ function AIChat() {
           }}
           onClick={() => void send()}
           disabled={!input.trim() || sending}
-          aria-label="Send message"
+          aria-label="메시지 전송"
         >
           ↑
         </button>
@@ -569,7 +569,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
               aria-expanded={findingsOpen}
             >
               <span style={s.findingsToggleIcon}>{findingsOpen ? '▾' : '▸'}</span>
-              Findings ({msg.findings.length})
+              발견 ({msg.findings.length})
             </button>
             {findingsOpen && (
               <div style={s.findingsList}>
@@ -610,9 +610,9 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
                   color: copiedAction === action ? '#56D364' : '#79C0FF',
                 }}
                 onClick={() => copyAction(action)}
-                title={`Try: ${action}`}
+                title={`실행: ${action}`}
               >
-                {copiedAction === action ? '✓ Copied' : action}
+                {copiedAction === action ? '✓ 복사됨' : action}
               </button>
             ))}
           </div>

@@ -35,7 +35,7 @@ export function TransactionTable({ selectedPoints }: TransactionTableProps) {
 
   if (selectedPoints.length === 0) {
     return (
-      <div style={styles.emptyState} aria-label="No transactions selected">
+      <div style={styles.emptyState} aria-label="선택된 트랜잭션 없음">
         <div style={styles.emptyIcon} aria-hidden="true">⬡</div>
         <p style={styles.emptyText}>X-View에서 드래그하여 트랜잭션을 선택하세요</p>
         <p style={styles.emptyHint}>shift+drag: 연속 선택 · Esc: 선택 해제</p>
@@ -45,8 +45,8 @@ export function TransactionTable({ selectedPoints }: TransactionTableProps) {
 
   return (
     <div style={styles.root}>
-      <div style={styles.tableWrapper} role="region" aria-label="Selected transactions table">
-        <table style={styles.table} aria-label="Transaction list">
+      <div style={styles.tableWrapper} role="region" aria-label="선택된 트랜잭션 테이블">
+        <table style={styles.table} aria-label="트랜잭션 목록">
           <thead>
             <tr>
               <th style={styles.th}>시간</th>
@@ -83,7 +83,7 @@ export function TransactionTable({ selectedPoints }: TransactionTableProps) {
                   <td style={styles.td}>
                     <span
                       style={isError ? styles.errPill : styles.okPill}
-                      aria-label={isError ? 'Error' : 'OK'}
+                      aria-label={isError ? '오류' : '정상'}
                     >
                       {isError ? 'ERR' : 'OK'}
                     </span>

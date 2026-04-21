@@ -25,14 +25,14 @@ import { LogMetricsView } from './components/LogMetrics/LogMetricsView';
 type Route = '/' | '/metrics' | '/explorer' | '/logs' | '/log-rules' | '/profiling' | '/insights' | '/about';
 
 const NAV_ITEMS: Array<{ label: string; route: Route; phase?: string }> = [
-  { label: 'X-View',    route: '/'          },
-  { label: 'Dashboard', route: '/metrics'   },
-  { label: 'Explorer',  route: '/explorer'  },
-  { label: 'Logs',      route: '/logs'      },
-  { label: 'Log Rules', route: '/log-rules' },
-  { label: 'Profiling', route: '/profiling' },
-  { label: 'Insights',  route: '/insights'  },
-  { label: 'About',     route: '/about'     },
+  { label: 'X-View',          route: '/'          },
+  { label: '대시보드',         route: '/metrics'   },
+  { label: '탐색기',           route: '/explorer'  },
+  { label: '로그',             route: '/logs'      },
+  { label: '로그 메트릭 규칙', route: '/log-rules' },
+  { label: '프로파일링',       route: '/profiling' },
+  { label: '인사이트',         route: '/insights'  },
+  { label: '소개',             route: '/about'     },
 ];
 
 function getRoute(): Route {
@@ -61,7 +61,7 @@ interface NavBarProps {
 
 function NavBar({ route, onNavigate, timeRange, onTimeRangeChange }: NavBarProps) {
   return (
-    <nav style={navStyles.bar} role="navigation" aria-label="Main navigation">
+    <nav style={navStyles.bar} role="navigation" aria-label="주요 내비게이션">
       {/* Logo */}
       <div style={navStyles.logo}>
         <span style={navStyles.logoText}>datacat</span>
@@ -109,7 +109,7 @@ function NavBar({ route, onNavigate, timeRange, onTimeRangeChange }: NavBarProps
 
       {/* Shared time range picker (only relevant for metric views) */}
       {(route === '/metrics' || route === '/explorer') && (
-        <div style={navStyles.timeGroup} role="group" aria-label="Time range">
+        <div style={navStyles.timeGroup} role="group" aria-label="시간 범위">
           {TIME_RANGES.map((tr) => {
             const active = timeRange === tr.value;
             return (

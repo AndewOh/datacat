@@ -205,13 +205,13 @@ function drawFrame({
   ctx.textBaseline = 'middle';
   ctx.translate(11 * dpr, plotH / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText('Response Time', 0, 0);
+  ctx.fillText('응답시간', 0, 0);
   ctx.restore();
 
   // X label
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('Time', LEFT + plotW / 2, canvasH - 1 * dpr);
+  ctx.fillText('시간', LEFT + plotW / 2, canvasH - 1 * dpr);
 
   // ─ Committed selection rect (Bug 1 fix — drawn here so it tracks pan/zoom) ──
   if (dataNormSel) {
@@ -464,7 +464,7 @@ export function XView({
       <div style={styles.errorContainer}>
         <div style={styles.errorBox}>
           <span style={styles.errorIcon}>!</span>
-          <p style={styles.errorTitle}>WebGL2 not available</p>
+          <p style={styles.errorTitle}>WebGL2를 사용할 수 없습니다</p>
           <p style={styles.errorMessage}>{webglError}</p>
         </div>
       </div>
@@ -484,14 +484,14 @@ export function XView({
 
       {/* 로딩 오버레이 */}
       {loading && (
-        <div style={styles.loadingOverlay} aria-label="Loading data" aria-live="polite">
+        <div style={styles.loadingOverlay} aria-label="데이터 로딩 중" aria-live="polite">
           <div style={styles.loadingSpinner} />
-          <span style={styles.loadingText}>Loading...</span>
+          <span style={styles.loadingText}>로딩 중...</span>
         </div>
       )}
 
       {/* HUD */}
-      <div style={styles.hud} aria-live="polite" aria-label="Performance stats">
+      <div style={styles.hud} aria-live="polite" aria-label="성능 통계">
         <span style={styles.hudItem}>{fps} fps</span>
         <span style={styles.hudDivider}>·</span>
         <span style={styles.hudItem}>{points.length.toLocaleString()} pts</span>
@@ -505,7 +505,7 @@ export function XView({
           <>
             <span style={styles.hudDivider}>·</span>
             <span style={{ ...styles.hudItem, color: '#58A6FF' }}>
-              {selectedCount.toLocaleString()} selected
+              {selectedCount.toLocaleString()} 선택됨
             </span>
           </>
         )}
@@ -513,7 +513,7 @@ export function XView({
 
       {/* Interaction hint */}
       <div style={styles.hint}>
-        drag to select · scroll to zoom · shift+drag to pan · dblclick to reset
+        드래그: 선택 · 스크롤: 확대 · shift+드래그: 이동 · 더블클릭: 초기화
       </div>
 
       {/* Axis canvas: covers entire wrapper — draws margins, ticks, and committed selection.
@@ -533,7 +533,7 @@ export function XView({
           opacity: isReady ? 1 : 0,
           transition: 'opacity 0.3s ease',
         }}
-        aria-label="X-View scatter plot — transaction response times"
+        aria-label="X-View 산점도 — 트랜잭션 응답시간"
       />
 
       {/* SVG overlay: only for live drag rect (ephemeral, always current CSS pixels).

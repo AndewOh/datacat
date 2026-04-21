@@ -52,13 +52,13 @@ function renderExplorer(timeRange = '1h', onTimeRangeChange?: (v: string) => voi
 describe('MetricsExplorer — toolbar controls rendered', () => {
   it('renders the Metric selector combobox', async () => {
     renderExplorer();
-    const select = await screen.findByRole('combobox', { name: /metric/i });
+    const select = await screen.findByRole('combobox', { name: '메트릭' });
     expect(select).toBeInTheDocument();
   });
 
   it('renders the Aggregation select with all options', async () => {
     renderExplorer();
-    const aggSelect = await screen.findByRole('combobox', { name: /aggregation/i });
+    const aggSelect = await screen.findByRole('combobox', { name: '집계 함수' });
     expect(aggSelect).toBeInTheDocument();
 
     const options = Array.from((aggSelect as HTMLSelectElement).options).map((o) => o.value);
@@ -67,13 +67,13 @@ describe('MetricsExplorer — toolbar controls rendered', () => {
 
   it('defaults the Aggregation select to "avg"', async () => {
     renderExplorer();
-    const aggSelect = await screen.findByRole('combobox', { name: /aggregation/i });
+    const aggSelect = await screen.findByRole('combobox', { name: '집계 함수' });
     expect((aggSelect as HTMLSelectElement).value).toBe('avg');
   });
 
   it('renders the Group by select', async () => {
     renderExplorer();
-    const groupBySelect = await screen.findByRole('combobox', { name: /group by/i });
+    const groupBySelect = await screen.findByRole('combobox', { name: '그룹화 기준' });
     expect(groupBySelect).toBeInTheDocument();
   });
 
@@ -106,13 +106,13 @@ describe('MetricsExplorer — toolbar controls rendered', () => {
 
   it('renders the Service filter combobox', async () => {
     renderExplorer();
-    const svcSelect = await screen.findByRole('combobox', { name: /service filter/i });
+    const svcSelect = await screen.findByRole('combobox', { name: '서비스 필터' });
     expect(svcSelect).toBeInTheDocument();
   });
 
   it('populates the Metric selector with fallback metrics when API fails', async () => {
     renderExplorer();
-    const metricSelect = await screen.findByRole('combobox', { name: /metric/i });
+    const metricSelect = await screen.findByRole('combobox', { name: '메트릭' });
     const options = Array.from((metricSelect as HTMLSelectElement).options).map((o) => o.value);
     // FALLBACK_METRICS starts with 'http.request.duration'
     expect(options).toContain('http.request.duration');
@@ -121,7 +121,7 @@ describe('MetricsExplorer — toolbar controls rendered', () => {
 
   it('auto-selects the first fallback metric', async () => {
     renderExplorer();
-    const metricSelect = await screen.findByRole('combobox', { name: /metric/i });
+    const metricSelect = await screen.findByRole('combobox', { name: '메트릭' });
     // First fallback metric
     expect((metricSelect as HTMLSelectElement).value).toBe('http.request.duration');
   });
@@ -141,7 +141,7 @@ describe('MetricsExplorer — API data path', () => {
 
     renderExplorer();
 
-    const metricSelect = await screen.findByRole('combobox', { name: /metric/i });
+    const metricSelect = await screen.findByRole('combobox', { name: '메트릭' });
     const options = Array.from((metricSelect as HTMLSelectElement).options).map((o) => o.value);
     expect(options).toContain('api.latency');
     expect(options).toContain('queue.depth');

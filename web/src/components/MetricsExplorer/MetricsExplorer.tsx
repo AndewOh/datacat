@@ -152,7 +152,7 @@ export function MetricsExplorer({ timeRange, onTimeRangeChange }: MetricsExplore
           style={s.select}
           value={selectedMetric}
           onChange={(e) => setSelectedMetric(e.target.value)}
-          aria-label="Metric"
+          aria-label="메트릭"
         >
           {metrics.map((m) => (
             <option key={`${m.service}/${m.name}`} value={m.name}>
@@ -165,7 +165,7 @@ export function MetricsExplorer({ timeRange, onTimeRangeChange }: MetricsExplore
           style={s.select}
           value={agg}
           onChange={(e) => setAgg(e.target.value)}
-          aria-label="Aggregation"
+          aria-label="집계 함수"
         >
           {AGG_OPTIONS.map((a) => (
             <option key={a} value={a}>{a}</option>
@@ -176,7 +176,7 @@ export function MetricsExplorer({ timeRange, onTimeRangeChange }: MetricsExplore
           style={s.select}
           value={groupBy}
           onChange={(e) => setGroupBy(e.target.value)}
-          aria-label="Group by"
+          aria-label="그룹화 기준"
         >
           {GROUP_BY_OPTIONS.map((g) => (
             <option key={g.value} value={g.value}>{g.label}</option>
@@ -208,9 +208,9 @@ export function MetricsExplorer({ timeRange, onTimeRangeChange }: MetricsExplore
           style={s.select}
           value={serviceFilter}
           onChange={(e) => setServiceFilter(e.target.value)}
-          aria-label="Service filter"
+          aria-label="서비스 필터"
         >
-          <option value="">All</option>
+          <option value="">전체 서비스</option>
           {services.map((svc) => (
             <option key={svc} value={svc}>{svc}</option>
           ))}
