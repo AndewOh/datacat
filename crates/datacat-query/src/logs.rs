@@ -68,10 +68,14 @@ pub struct LogsStreamParams {
 /// 개별 로그 항목 — 프론트엔드 wire 포맷.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogEntry {
+    /// 안정적인 행 키 — React key로 사용. `trace_id:span_id:ts` 조합.
+    pub id: String,
     /// 타임스탬프 (Unix ms)
+    #[serde(rename = "timestamp")]
     pub ts: i64,
     pub service: String,
     pub severity: String,
+    #[serde(rename = "message")]
     pub body: String,
     pub trace_id: String,
     pub span_id: String,
@@ -197,7 +201,9 @@ fn raw_to_entry(raw: LogRowRaw) -> LogEntry {
         serde_json::Value::Object(map)
     };
 
+    let id = format!("{}:{}:{}", raw.trace_id, raw.span_id, raw.ts);
     LogEntry {
+        id,
         ts: raw.ts,
         service: raw.service,
         severity: raw.severity,
