@@ -172,29 +172,41 @@ export class XViewRenderer {
    * Y axis uses log1p scale for perceptual uniformity across response time decades.
    * O(n) — call once per data update, not per frame.
    */
-  setData(points: XViewPoint[]): void {
+  setData(points: XViewPoint[], xRange?: { start: number; end: number }): void {
     const gl = this.gl;
     this.pointCount = points.length;
 
-    if (points.length === 0) {
+    if (points.length === 0 && !xRange) {
       this.cpuData = new Float32Array(0);
       this.spanIds = [];
       return;
     }
 
-    // Compute data extents for normalization
-    let xMin = points[0].x, xMax = points[0].x;
-    let yMin = points[0].y, yMax = points[0].y;
+    let xMin: number, xMax: number;
+    let yMin = points[0]?.y ?? 0, yMax = points[0]?.y ?? 1;
 
-    for (const p of points) {
-      if (p.x < xMin) xMin = p.x;
-      if (p.x > xMax) xMax = p.x;
-      if (p.y < yMin) yMin = p.y;
-      if (p.y > yMax) yMax = p.y;
+    if (xRange) {
+      // 요청한 시간 범위를 X축 extent로 고정 — 버튼(15m/1h/6h/24h)이 바뀔 때
+      // 축 라벨이 항상 해당 범위를 반영하도록 한다.
+      xMin = xRange.start;
+      xMax = xRange.end;
+      for (const p of points) {
+        if (p.y < yMin) yMin = p.y;
+        if (p.y > yMax) yMax = p.y;
+      }
+    } else {
+      xMin = points[0].x; xMax = points[0].x;
+      for (const p of points) {
+        if (p.x < xMin) xMin = p.x;
+        if (p.x > xMax) xMax = p.x;
+        if (p.y < yMin) yMin = p.y;
+        if (p.y > yMax) yMax = p.y;
+      }
     }
 
     // Add 2% padding so boundary points aren't clipped
-    const xPad = (xMax - xMin) * 0.02;
+    // xRange가 있으면 X는 엄격히 범위 끝까지만 표시 (pad 없음)
+    const xPad = xRange ? 0 : (xMax - xMin) * 0.02;
     const yPad = (yMax - yMin) * 0.02;
     this.dataXMin = xMin - xPad;
     this.dataXMax = xMax + xPad;
@@ -206,7 +218,7 @@ export class XViewRenderer {
     this.logYMin = Math.log1p(this.dataYMin);
     this.logYMax = Math.log1p(this.dataYMax);
 
-    const xRange  = this.dataXMax - this.dataXMin;
+    const xSpan   = this.dataXMax - this.dataXMin;
     const logYRange = this.logYMax - this.logYMin;
 
     // Build interleaved Float32Array: [nx, ny_log, status, ...]
@@ -217,7 +229,7 @@ export class XViewRenderer {
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       const base = i * 3;
-      data[base]     = (p.x - this.dataXMin) / xRange;
+      data[base]     = (p.x - this.dataXMin) / xSpan;
       data[base + 1] = (Math.log1p(p.y) - this.logYMin) / logYRange;
       data[base + 2] = p.status;
       this.spanIds[i] = p.spanId;

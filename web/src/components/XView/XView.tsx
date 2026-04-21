@@ -263,6 +263,9 @@ interface XViewProps {
   onPointsSelected?: (points: XViewPoint[]) => void;
   /** 하위 호환: spanId string[] 콜백 (Dashboard 기존 코드) */
   onSelectionChange?: (spanIds: string[]) => void;
+  /** 요청한 시간 범위 (epoch ms). 주면 X축이 이 범위로 고정된다. */
+  rangeStart?: number;
+  rangeEnd?: number;
 }
 
 export function XView({
@@ -272,6 +275,8 @@ export function XView({
   usingMock = false,
   onPointsSelected,
   onSelectionChange,
+  rangeStart,
+  rangeEnd,
 }: XViewProps) {
   const canvasRef       = useRef<HTMLCanvasElement>(null);
   const axisCanvasRef   = useRef<HTMLCanvasElement>(null);
@@ -419,7 +424,10 @@ export function XView({
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    renderer.setData(points);
+    const xRange = rangeStart != null && rangeEnd != null && rangeEnd > rangeStart
+      ? { start: rangeStart, end: rangeEnd }
+      : undefined;
+    renderer.setData(points, xRange);
 
     const dn = dataNormSelRef.current;
     if (dn) {
@@ -436,7 +444,7 @@ export function XView({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points]); // dataNormSelRef is a ref — intentionally excluded
+  }, [points, rangeStart, rangeEnd]); // dataNormSelRef is a ref — intentionally excluded
 
   // ─── Escape key clears selection ────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

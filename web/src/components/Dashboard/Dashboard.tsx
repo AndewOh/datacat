@@ -13,7 +13,7 @@ import { Sidebar } from '../ui/Sidebar';
 import { TopBar } from '../ui/TopBar';
 import { XView } from '../XView/XView';
 import { TransactionTable } from '../TransactionTable/TransactionTable';
-import { useXView } from '../../hooks/useXView';
+import { useXView, timeRangeToParams } from '../../hooks/useXView';
 import type { XViewPoint } from '../XView/types';
 import { fetchServices } from '../../api/client';
 import type { Service } from '../../api/client';
@@ -39,6 +39,9 @@ export function Dashboard() {
     timeRange,
     refreshIntervalMs: 30_000,
   });
+
+  // 버튼이 바뀔 때마다 X축 범위도 바뀌어야 하므로 timeRange 기반으로 재계산
+  const { start: rangeStart, end: rangeEnd } = timeRangeToParams(timeRange);
 
   const handlePointsSelected = useCallback((pts: XViewPoint[]) => {
     setSelectedPoints(pts);
@@ -92,6 +95,8 @@ export function Dashboard() {
                 error={error}
                 usingMock={usingMock}
                 onPointsSelected={handlePointsSelected}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
               />
             </div>
           </section>
