@@ -7,11 +7,11 @@
 //!   - 라이선스 시크릿은 어떠한 응답에도 포함되지 않는다.
 
 use axum::{
-    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -19,7 +19,7 @@ use tracing::{info, warn};
 use crate::{
     license::{generate_license, validate_license},
     state::AppState,
-    tenant::{Plan, Tenant, TenantCreateResponse, TenantView, hash_api_key},
+    tenant::{hash_api_key, Plan, Tenant, TenantCreateResponse, TenantView},
 };
 
 // ---------------------------------------------------------------------------
@@ -43,6 +43,25 @@ fn bad_request(msg: &str) -> Response {
 }
 
 // ---------------------------------------------------------------------------
+// GET /health, /healthz — liveness probe
+// ---------------------------------------------------------------------------
+
+pub async fn health_handler() -> impl IntoResponse {
+    #[derive(Serialize)]
+    struct HealthResponse {
+        status: &'static str,
+        service: &'static str,
+        version: &'static str,
+    }
+
+    Json(HealthResponse {
+        status: "ok",
+        service: "datacat-admin",
+        version: env!("CARGO_PKG_VERSION"),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/v1/admin/tenants — 테넌트 생성
 // ---------------------------------------------------------------------------
 
@@ -61,12 +80,7 @@ pub async fn create_tenant(
         return bad_request("name must not be empty");
     }
 
-    let plan: Plan = match req
-        .plan
-        .as_deref()
-        .unwrap_or("Free")
-        .parse::<Plan>()
-    {
+    let plan: Plan = match req.plan.as_deref().unwrap_or("Free").parse::<Plan>() {
         Ok(p) => p,
         Err(_) => return bad_request("plan must be one of: Free, Pro, Enterprise"),
     };
@@ -105,10 +119,7 @@ pub async fn list_tenants(State(state): State<AppState>) -> Response {
 // GET /api/v1/admin/tenants/:id — 단건 조회
 // ---------------------------------------------------------------------------
 
-pub async fn get_tenant(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn get_tenant(State(state): State<AppState>, Path(id): Path<String>) -> Response {
     let store = state.tenants.read().await;
     match store.get(&id) {
         Some(t) => Json(TenantView::from(t)).into_response(),
@@ -162,10 +173,7 @@ pub async fn update_tenant(
 // DELETE /api/v1/admin/tenants/:id — 소프트 삭제 (active=false)
 // ---------------------------------------------------------------------------
 
-pub async fn delete_tenant(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn delete_tenant(State(state): State<AppState>, Path(id): Path<String>) -> Response {
     let mut store = state.tenants.write().await;
     match store.get_mut(&id) {
         None => not_found(),
@@ -185,10 +193,7 @@ pub async fn delete_tenant(
 // POST /api/v1/admin/tenants/:id/rotate-key — API 키 교체
 // ---------------------------------------------------------------------------
 
-pub async fn rotate_key(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn rotate_key(State(state): State<AppState>, Path(id): Path<String>) -> Response {
     let mut store = state.tenants.write().await;
     match store.get_mut(&id) {
         None => not_found(),
@@ -241,7 +246,10 @@ pub async fn verify_api_key(
     let key_hash = hash_api_key(&req.api_key);
     let store = state.tenants.read().await;
 
-    match store.values().find(|t| t.active && t.api_key_hash == key_hash) {
+    match store
+        .values()
+        .find(|t| t.active && t.api_key_hash == key_hash)
+    {
         Some(tenant) => Json(VerifyKeyResponse {
             tenant_id: tenant.id.clone(),
             plan: tenant.plan.to_string(),
@@ -330,6 +338,8 @@ pub async fn validate_license_handler(
 
 pub fn tenant_router() -> Router<AppState> {
     Router::new()
+        .route("/health", get(health_handler))
+        .route("/healthz", get(health_handler))
         .route("/api/v1/admin/tenants", post(create_tenant))
         .route("/api/v1/admin/tenants", get(list_tenants))
         .route("/api/v1/admin/tenants/:id", get(get_tenant))
@@ -345,4 +355,22 @@ pub fn tenant_router() -> Router<AppState> {
             "/api/v1/admin/license/validate",
             post(validate_license_handler),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    #[tokio::test]
+    async fn health_handler_returns_admin_status_payload() {
+        let response = health_handler().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), 1024).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["status"], "ok");
+        assert_eq!(json["service"], "datacat-admin");
+        assert_eq!(json["version"], env!("CARGO_PKG_VERSION"));
+    }
 }

@@ -16,9 +16,12 @@ mod state;
 mod tenant;
 
 use anyhow::Result;
-use tower_http::{cors::{Any, CorsLayer}, trace::TraceLayer};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 use tracing::{info, warn};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 use api::tenant_router;
 use state::AppState;
@@ -42,18 +45,24 @@ fn default_license_secret() -> String {
 async fn seed_default_tenant(state: &AppState) {
     let (tenant, plain_key) = Tenant::new("default".to_string(), Plan::Enterprise);
     let tenant_id = tenant.id.clone();
+    let api_key_hint = plain_key
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
 
     {
         let mut store = state.tenants.write().await;
         store.insert(tenant.id.clone(), tenant);
     }
 
-    // 개발 환경에서 기본 키를 로그로 확인할 수 있도록 출력.
-    // 프로덕션에서는 이 로그가 노출되지 않도록 로그 레벨을 관리해야 한다.
     info!(
         tenant_id = %tenant_id,
-        api_key = %plain_key,
-        "기본 'default' 테넌트 시드 완료 — 이 키를 안전하게 보관하세요"
+        api_key_hint = %format!("****{api_key_hint}"),
+        "기본 'default' 테넌트 시드 완료 — API 키 원문은 로그에 남기지 않습니다"
     );
 }
 
@@ -61,16 +70,12 @@ async fn seed_default_tenant(state: &AppState) {
 async fn main() -> Result<()> {
     fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .json()
         .init();
 
-    info!(
-        version = env!("CARGO_PKG_VERSION"),
-        "datacat-admin 시작"
-    );
+    info!(version = env!("CARGO_PKG_VERSION"), "datacat-admin 시작");
 
     let listen_addr = default_listen_addr();
     let license_secret = default_license_secret();

@@ -7,7 +7,7 @@
 //! 비밀키는 어떠한 응답에도 포함되지 않는다.
 
 use anyhow::{bail, Context, Result};
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,9 @@ pub fn generate_license(tenant_id: &str, plan: &str, valid_days: u32, secret: &s
 pub fn validate_license(license: &str, secret: &str) -> Result<LicenseClaims> {
     let mut parts = license.splitn(2, '.');
     let payload_b64 = parts.next().context("license format invalid")?;
-    let sig_hex = parts.next().context("license format invalid: missing sig")?;
+    let sig_hex = parts
+        .next()
+        .context("license format invalid: missing sig")?;
 
     // 서명 검증 — constant-time via hmac::Mac::verify_slice (subtle crate 기반)
     // hex 디코딩 실패 자체가 타이밍 누출이 없으므로 일반 오류 처리로 충분.
@@ -65,8 +67,8 @@ pub fn validate_license(license: &str, secret: &str) -> Result<LicenseClaims> {
         .decode(payload_b64)
         .context("license payload base64 decode failed")?;
 
-    let claims: LicenseClaims = serde_json::from_slice(&payload_bytes)
-        .context("license payload json parse failed")?;
+    let claims: LicenseClaims =
+        serde_json::from_slice(&payload_bytes).context("license payload json parse failed")?;
 
     // 만료 검사
     let now_ms = Utc::now().timestamp_millis();
@@ -86,4 +88,3 @@ fn compute_hmac(data: &[u8], key: &[u8]) -> String {
     mac.update(data);
     hex::encode(mac.finalize().into_bytes())
 }
-

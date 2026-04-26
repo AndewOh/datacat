@@ -133,7 +133,7 @@ start_service "datacat-query"   "DATACAT_LISTEN_ADDR=0.0.0.0:8001"
 start_service "datacat-api"     "DATACAT_LISTEN_ADDR=0.0.0.0:8000 DATACAT_QUERY_SERVICE_URL=http://localhost:8001 DATACAT_INSIGHTS_SERVICE_URL=http://localhost:9091 DATACAT_ADMIN_URL=http://localhost:9093"
 start_service "datacat-alerting"  "DATACAT_LISTEN_ADDR=0.0.0.0:9090"
 start_service "datacat-insights"  "DATACAT_LISTEN_ADDR=0.0.0.0:9091"
-start_service "datacat-admin"     "DATACAT_LISTEN_ADDR=0.0.0.0:9093 DATACAT_LICENSE_SECRET=dev_secret"
+start_service "datacat-admin"     "DATACAT_LISTEN_ADDR=0.0.0.0:9093 DATACAT_LICENSE_SECRET=datacat-dev-local-secret"
 
 # Give services a moment to start compiling / binding ports
 sleep 2
@@ -145,7 +145,7 @@ if [ ! -d node_modules ]; then
   info "  Running npm install first..."
   npm install
 fi
-npm run dev >> "${REPO_ROOT}/.dev-logs/web.log" 2>&1 &
+npm run dev -- --host 0.0.0.0 --port 3000 >> "${REPO_ROOT}/.dev-logs/web.log" 2>&1 &
 PIDS+=($!)
 
 # ─── 6. Print service table ───────────────────────────────────────────────────
